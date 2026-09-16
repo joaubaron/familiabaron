@@ -12,62 +12,75 @@
   html, body {
     height:100%; overflow:hidden;
     font-family: 'Georgia', 'Times New Roman', serif;
-    background:#2b1810;
+    background:#3c2c1c;
     background-image:
-      radial-gradient(circle at 20% 20%, rgba(120,80,40,0.3), transparent 60%),
-      radial-gradient(circle at 80% 80%, rgba(90,60,30,0.3), transparent 60%);
+      radial-gradient(circle at 15% 15%, rgba(120,80,40,0.25), transparent 55%),
+      radial-gradient(circle at 85% 85%, rgba(90,60,30,0.25), transparent 55%),
+      repeating-linear-gradient(45deg, rgba(0,0,0,0.02) 0 2px, transparent 2px 6px);
     color:#3a2415;
     user-select:none;
   }
 
-  #book {
+  #stack {
     position:absolute; inset:0;
     display:flex; align-items:center; justify-content:center;
-    perspective:2000px;
     cursor: grab;
     touch-action: pan-y;
   }
-  #book.grabbing { cursor: grabbing; }
+  #stack.grabbing { cursor: grabbing; }
 
-  .page {
+  /* Fotos decorativas espiadas por trás, dando efeito de pilha */
+  .deco {
+    position:absolute;
+    width:min(88vw, 500px);
+    height:min(76vh, 740px);
+    background:#efe4cc;
+    border-radius:3px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.4);
+    pointer-events:none;
+    z-index:0;
+  }
+  .deco1 { transform: translate(-14px, 10px) rotate(-6deg); opacity:0.75; }
+  .deco2 { transform: translate(16px, 16px) rotate(5deg); opacity:0.55; }
+
+  .card {
     position:absolute;
     width:min(92vw, 520px);
     height:min(80vh, 760px);
-    background:#f5ecd8;
-    border-radius:6px;
+    background:#faf6ea;
+    border-radius:3px;
     box-shadow:
-      0 20px 40px rgba(0,0,0,0.5),
-      inset 0 0 0 1px rgba(120,80,40,0.2),
-      inset 0 0 80px rgba(160,120,70,0.25);
+      0 16px 34px rgba(0,0,0,0.45),
+      inset 0 0 0 1px rgba(120,80,40,0.15);
     background-image:
-      repeating-linear-gradient(0deg, rgba(160,120,70,0.04) 0 2px, transparent 2px 4px),
-      radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6), transparent 70%);
-    transform-origin: left center;
-    backface-visibility:hidden;
+      radial-gradient(circle at 25% 20%, rgba(255,255,255,0.5), transparent 65%);
     overflow:hidden;
     display:flex; flex-direction:column;
     padding:22px 22px 40px;
-    transform-style:preserve-3d;
-    will-change: transform, filter;
-  }
-  .page::after {
-    content:''; position:absolute; inset:0;
-    background:linear-gradient(90deg, rgba(90,60,30,0.18), transparent 8%);
-    pointer-events:none;
-    border-radius:6px;
+    z-index:5;
+    will-change: transform, opacity;
   }
 
-  .page-shade {
-    position:absolute; inset:0;
+  /* ---- "Cantoneiras" de álbum antigo nos cantos ---- */
+  .card:not(.cover)::before,
+  .card:not(.cover)::after {
+    content:'';
+    position:absolute;
+    width:26px; height:26px;
+    background: linear-gradient(135deg, rgba(150,110,60,0.55), rgba(150,110,60,0.15));
     pointer-events:none;
-    opacity:0;
-    border-radius:6px;
-    z-index:2;
+    z-index:3;
   }
-  .page-shade.next { background:linear-gradient(90deg, transparent 55%, rgba(30,16,6,0.8)); }
-  .page-shade.prev { background:linear-gradient(270deg, transparent 55%, rgba(30,16,6,0.8)); }
+  .card:not(.cover)::before {
+    top:0; left:0;
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+  }
+  .card:not(.cover)::after {
+    bottom:0; right:0;
+    clip-path: polygon(100% 100%, 0 100%, 100% 0);
+  }
 
-  .page-number {
+  .card-number {
     position:absolute; bottom:12px; left:0; right:0;
     text-align:center; font-size:13px; color:#8a6b4a;
     font-style:italic; letter-spacing:1px;
@@ -150,7 +163,7 @@
     z-index: 1;
   }
 
-  /* ---- PÁGINA FINAL (mesmo estilo das fotos) ---- */
+  /* ---- CARTÃO FINAL (mesmo estilo das fotos) ---- */
   .end-page {
     padding: 22px 22px 40px;
     justify-content: center;
@@ -257,7 +270,8 @@
   }
 
   @media (max-width:480px) {
-    .page { width:94vw; height:78vh; padding:16px 16px 36px; }
+    .card, .deco { width:94vw; height:78vh; }
+    .card { padding:16px 16px 36px; }
     .photo { padding:8px 8px 0; }
     .photo img { max-height: 50vh; }
     .photo .caption { font-size:12px; margin:8px 0 10px; }
@@ -271,20 +285,23 @@
 
 <div id="loading">Abrindo o álbum…</div>
 
-<div id="book"></div>
+<div id="stack">
+  <div class="deco deco1"></div>
+  <div class="deco deco2"></div>
+</div>
 
-<div class="hint" id="hint">Deslize ou toque nas setas para folhear</div>
+<div class="hint" id="hint">Deslize ou toque nas setas para passar as fotos</div>
 
 <div class="nav">
-  <button id="prev" aria-label="Página anterior">‹</button>
-  <button id="next" aria-label="Próxima página">›</button>
+  <button id="prev" aria-label="Foto anterior">‹</button>
+  <button id="next" aria-label="Próxima foto">›</button>
 </div>
 
 <script>
 const PHOTOS_DIR = 'fotos/';
 const MANIFEST_URL = PHOTOS_DIR + 'manifest.json';
 
-const book = document.getElementById('book');
+const stack = document.getElementById('stack');
 const loading = document.getElementById('loading');
 const hint = document.getElementById('hint');
 const prevBtn = document.getElementById('prev');
@@ -363,7 +380,7 @@ function normalizeList(list) {
 function buildPages(fileList) {
   const pgs = [{ type:'cover' }];
   for (let i = 0; i < fileList.length; i++) {
-    pgs.push({ type:'photo', items:[fileList[i]] });  // 1 foto por página
+    pgs.push({ type:'photo', items:[fileList[i]] });  // 1 foto por cartão
   }
   if (fileList.length > 0) pgs.push({ type:'end' });
   return pgs;
@@ -372,11 +389,12 @@ function buildPages(fileList) {
 // ---------- Render ----------
 function renderPage(page, index) {
   const el = document.createElement('div');
-  el.className = 'page';
+  el.className = 'card';
   el.dataset.index = index;
 
-  const shade = document.createElement('div');
-  shade.className = 'page-shade';
+  // Rotação leve e estável por cartão, como se estivesse jogado numa mesa
+  const seedRot = (index * 37) % 9;
+  el.style.setProperty('--card-rot', ((seedRot - 4) * 0.6) + 'deg');
 
   if (page.type === 'cover') {
     el.classList.add('cover');
@@ -442,11 +460,10 @@ function renderPage(page, index) {
     el.appendChild(frame);
 
     const pn = document.createElement('div');
-    pn.className = 'page-number';
+    pn.className = 'card-number';
     pn.textContent = `— ${index} —`;
     el.appendChild(pn);
   }
-  el.appendChild(shade);
   return el;
 }
 
@@ -462,10 +479,16 @@ function preloadPage(index) {
   });
 }
 
+function baseTransform(el) {
+  return `rotate(${el.style.getPropertyValue('--card-rot') || '0deg'})`;
+}
+
 function showPage(index) {
-  book.innerHTML = '';
+  stack.querySelectorAll('.card').forEach(c => c.remove());
   const el = renderPage(pages[index], index);
-  book.appendChild(el);
+  el.style.transform = baseTransform(el);
+  el.style.opacity = 1;
+  stack.appendChild(el);
   current = index;
   updateNav();
   preloadPage(index + 1);
@@ -477,59 +500,65 @@ function updateNav() {
   nextBtn.disabled = current >= pages.length - 1;
 }
 
-// ---------- Navegação: arraste real + física de dobra ----------
+// ---------- Navegação: cartão de cima "sai da pilha", o de baixo sobe ----------
 function easeOutCubic(x) { return 1 - Math.pow(1 - x, 3); }
 function easeInOutCubic(x) { return x < 0.5 ? 4*x*x*x : 1 - Math.pow(-2*x+2, 3)/2; }
 
-// Aplica o ângulo/sombra/sombra-projetada de acordo com o progresso t (0..1)
-function applyTurnVisual(el, direction, t) {
+// t = 0..1 do gesto/animação. direction: 1 = próxima foto, -1 = anterior.
+function applyTurnVisual(outEl, inEl, direction, t) {
   t = Math.min(Math.max(t, 0), 1);
-  const angle = direction > 0 ? -180 * t : 180 * t;
-  el.style.transformOrigin = direction > 0 ? 'left center' : 'right center';
-  el.style.transform = `rotateY(${angle}deg)`;
 
-  const darkness = Math.sin(t * Math.PI); // pico no meio do giro
-  const shade = el.querySelector('.page-shade');
-  if (shade) {
-    shade.className = 'page-shade ' + (direction > 0 ? 'next' : 'prev');
-    shade.style.opacity = (darkness * 0.7).toFixed(3);
-  }
-  const lift = darkness * 22;
-  const dx = direction > 0 ? -lift : lift;
-  el.style.filter = `drop-shadow(${dx}px 12px ${16 + lift}px rgba(0,0,0,${0.3 + darkness*0.3}))`;
+  // Cartão saindo: desliza para o lado, sobe um pouco e gira, some.
+  const outX = direction > 0 ? -t * 90 : t * 90;
+  const outY = -t * 26;
+  const outRotBase = parseFloat(outEl.dataset.rot || '0');
+  const outRot = outRotBase + (direction > 0 ? -10 : 10) * t;
+  outEl.style.transform = `translate(${outX}px, ${outY}px) rotate(${outRot}deg)`;
+  outEl.style.opacity = String(1 - t * 0.95);
+
+  // Cartão entrando: vem de baixo da pilha, cresce e some o esmaecido.
+  const inRotBase = parseFloat(inEl.dataset.rot || '0');
+  const scale = 0.94 + 0.06 * t;
+  const inY = (1 - t) * 20;
+  inEl.style.transform = `translate(0, ${inY}px) rotate(${inRotBase}deg) scale(${scale})`;
+  inEl.style.opacity = String(0.55 + 0.45 * t);
 }
 
 function resetTurnVisual(el) {
-  el.style.transform = '';
-  el.style.filter = '';
-  el.style.transformOrigin = '';
-  const shade = el.querySelector('.page-shade');
-  if (shade) shade.style.opacity = 0;
+  const rot = parseFloat(el.dataset.rot || '0');
+  el.style.transform = `rotate(${rot}deg)`;
+  el.style.opacity = 1;
 }
 
-// Animação programática (botões, teclado, swipe) do início ao fim
+// Animação programática (botões, teclado)
 function turn(direction) {
   if (animating || drag) return;
   const target = current + direction;
   if (target < 0 || target >= pages.length) return;
   animating = true;
 
-  const topEl = book.querySelector('.page');
+  const topEl = stack.querySelector('.card');
+  topEl.dataset.rot = (topEl.style.getPropertyValue('--card-rot') || '0deg').replace('deg','');
   topEl.style.zIndex = 5;
-  const bottomEl = renderPage(pages[target], target);
-  bottomEl.style.zIndex = 1;
-  book.insertBefore(bottomEl, topEl);
 
-  const dur = 520;
+  const bottomEl = renderPage(pages[target], target);
+  bottomEl.dataset.rot = (bottomEl.style.getPropertyValue('--card-rot') || '0deg').replace('deg','');
+  bottomEl.style.zIndex = 1;
+  bottomEl.style.opacity = 0.55;
+  stack.insertBefore(bottomEl, topEl);
+
+  const dur = 380;
   const startTime = performance.now();
   function step(now) {
     const p = Math.min((now - startTime) / dur, 1);
-    applyTurnVisual(topEl, direction, easeInOutCubic(p));
+    applyTurnVisual(topEl, bottomEl, direction, easeInOutCubic(p));
     if (p < 1) {
       requestAnimationFrame(step);
     } else {
-      book.innerHTML = '';
-      book.appendChild(bottomEl);
+      stack.querySelectorAll('.card').forEach(c => c.remove());
+      bottomEl.style.zIndex = 5;
+      resetTurnVisual(bottomEl);
+      stack.appendChild(bottomEl);
       current = target;
       updateNav();
       animating = false;
@@ -545,8 +574,8 @@ let drag = null;
 
 function dragStart(clientX) {
   if (animating) return;
-  drag = { startX: clientX, width: book.clientWidth, direction: null, t: 0 };
-  book.classList.add('grabbing');
+  drag = { startX: clientX, width: stack.clientWidth, direction: null, t: 0 };
+  stack.classList.add('grabbing');
 }
 
 function dragMove(clientX) {
@@ -560,41 +589,46 @@ function dragMove(clientX) {
     if (target < 0 || target >= pages.length) { drag.direction = 0; return; }
     drag.direction = dir;
     drag.target = target;
-    drag.topEl = book.querySelector('.page');
+    drag.topEl = stack.querySelector('.card');
+    drag.topEl.dataset.rot = (drag.topEl.style.getPropertyValue('--card-rot') || '0deg').replace('deg','');
     drag.topEl.style.zIndex = 5;
     drag.bottomEl = renderPage(pages[target], target);
+    drag.bottomEl.dataset.rot = (drag.bottomEl.style.getPropertyValue('--card-rot') || '0deg').replace('deg','');
     drag.bottomEl.style.zIndex = 1;
-    book.insertBefore(drag.bottomEl, drag.topEl);
+    drag.bottomEl.style.opacity = 0.55;
+    stack.insertBefore(drag.bottomEl, drag.topEl);
   }
   if (!drag.direction) return;
 
-  drag.t = Math.min(Math.abs(dx) / (drag.width * 0.8), 1);
-  applyTurnVisual(drag.topEl, drag.direction, drag.t);
+  drag.t = Math.min(Math.abs(dx) / (drag.width * 0.7), 1);
+  applyTurnVisual(drag.topEl, drag.bottomEl, drag.direction, drag.t);
 }
 
 function dragEnd() {
-  book.classList.remove('grabbing');
+  stack.classList.remove('grabbing');
   if (!drag || !drag.direction) { drag = null; return; }
 
   const { topEl, bottomEl, direction, target, t } = drag;
-  const complete = t > 0.35;
+  const complete = t > 0.32;
   animating = true;
   drag = null;
 
   const startT = t;
   const endT = complete ? 1 : 0;
-  const dur = 240;
+  const dur = 220;
   const startTime = performance.now();
   function step(now) {
     const p = Math.min((now - startTime) / dur, 1);
     const eased = startT + (endT - startT) * easeOutCubic(p);
-    applyTurnVisual(topEl, direction, eased);
+    applyTurnVisual(topEl, bottomEl, direction, eased);
     if (p < 1) {
       requestAnimationFrame(step);
     } else {
       if (complete) {
-        book.innerHTML = '';
-        book.appendChild(bottomEl);
+        stack.querySelectorAll('.card').forEach(c => c.remove());
+        bottomEl.style.zIndex = 5;
+        resetTurnVisual(bottomEl);
+        stack.appendChild(bottomEl);
         current = target;
       } else {
         bottomEl.remove();
@@ -617,8 +651,8 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft') turn(-1);
 });
 
-book.addEventListener('pointerdown', e => dragStart(e.clientX));
-book.addEventListener('pointermove', e => dragMove(e.clientX));
+stack.addEventListener('pointerdown', e => dragStart(e.clientX));
+stack.addEventListener('pointermove', e => dragMove(e.clientX));
 window.addEventListener('pointerup', dragEnd);
 window.addEventListener('pointercancel', dragEnd);
 
