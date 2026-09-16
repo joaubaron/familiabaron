@@ -19,22 +19,17 @@ color:#3a2415;
 user-select:none;
 }
 
-/* ============================================================
-PALCO — perspectiva única
-============================================================ */
 #book {
 position:absolute; inset:0;
 display:flex; align-items:center; justify-content:center;
 cursor: grab;
 touch-action: pan-y;
 overflow: hidden;
-perspective: 2000px;
-perspective-origin: 50% 50%;
 }
 #book.grabbing { cursor: grabbing; }
 
 /* ============================================================
-PÁGINA (estática por baixo)
+PÁGINAS
 ============================================================ */
 .page {
 position:absolute;
@@ -54,11 +49,17 @@ backface-visibility:hidden;
 overflow:hidden;
 display:flex; flex-direction:column;
 padding:22px 22px 40px;
+
+will-change: transform, opacity;
+transition:
+transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1),
+opacity   320ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.page.is-active { opacity:1; z-index: 3; }
-.page.is-next,
-.page.is-prev { opacity: 0; pointer-events: none; z-index: 1; }
+.page.is-active { transform: translate3d(0,0,0) scale(1); opacity:1; z-index:3; }
+.page.is-next   { transform: translate3d(60%,0,0) scale(0.94); opacity:0; z-index:2; pointer-events:none; }
+.page.is-prev   { transform: translate3d(-60%,0,0) scale(0.94); opacity:0; z-index:2; pointer-events:none; }
+.page.dragging  { transition: none; }
 
 .page::after {
 content:''; position:absolute; inset:0;
@@ -73,9 +74,7 @@ text-align:center; font-size:13px; color:#8a6b4a;
 font-style:italic; letter-spacing:1px;
 }
 
-/* ============================================================
-MOLDURA + FOTO
-============================================================ */
+/* ---- MOLDURA + FOTO ---- */
 .photo-frame {
 flex: 1;
 display: flex;
@@ -83,44 +82,62 @@ justify-content: center;
 align-items: center;
 padding: 10px;
 }
+
 .photo {
 background: #fff;
 padding: 10px 10px 0;
 border-radius: 2px;
 box-shadow: 0 6px 18px rgba(60, 35, 15, 0.4);
-display: flex; flex-direction: column; align-items: center;
-max-width: 100%; max-height: 100%;
+display: flex;
+flex-direction: column;
+align-items: center;
+max-width: 100%;
+max-height: 100%;
 transform: rotate(var(--rot, 0deg));
 }
+
 .photo img {
 display: block;
 max-width: 100%;
 max-height: 55vh;
-width: auto; height: auto;
+width: auto;
+height: auto;
 object-fit: contain;
 filter: sepia(0.25) contrast(1.05) saturate(0.9);
 background: #111;
+transition: transform 0.3s ease;
+transform-origin: center;
 -webkit-user-drag: none;
 user-drag: none;
 }
+
 .photo .caption {
-font-family:'Georgia', serif; font-style: italic;
-font-size: 13px; color:#7a5a3a; text-align:center;
-margin: 10px 0 12px; max-width: 100%;
+font-family: 'Georgia', serif;
+font-style: italic;
+font-size: 13px;
+color: #7a5a3a;
+text-align: center;
+margin: 10px 0 12px;
+max-width: 100%;
+white-space: normal;
 overflow: hidden;
 display: -webkit-box;
 -webkit-line-clamp: 2;
 -webkit-box-orient: vertical;
-padding: 0 6px; line-height: 1.3;
-}
-.photo .placeholder {
-padding: 40px 30px; color:#8a6b4a; font-style: italic;
-font-size: 13px; background:#e8dcc4; border-radius: 2px;
+padding: 0 6px;
+line-height: 1.3;
 }
 
-/* ============================================================
-CAPA
-============================================================ */
+.photo .placeholder {
+padding: 40px 30px;
+color: #8a6b4a;
+font-style: italic;
+font-size: 13px;
+background: #e8dcc4;
+border-radius: 2px;
+}
+
+/* ---- CAPA ---- */
 .cover {
 position: relative;
 padding: 0 !important;
@@ -129,7 +146,8 @@ overflow: hidden;
 background: #2a1a0e;
 }
 .cover-img {
-position: absolute; inset: 0;
+position: absolute;
+inset: 0;
 background-image: url('fotos/capa.webp');
 background-size: cover;
 background-repeat: no-repeat;
@@ -138,12 +156,12 @@ background-color: #2a1a0e;
 z-index: 1;
 }
 
-/* ============================================================
-PÁGINA FINAL
-============================================================ */
+/* ---- PÁGINA FINAL ---- */
 .end-page {
 padding: 22px 22px 40px;
-justify-content: center; align-items: center; text-align: center;
+justify-content: center;
+align-items: center;
+text-align: center;
 }
 .end-content {
 display: flex; flex-direction: column;
@@ -174,89 +192,35 @@ font-style: italic; font-size:13px; color:#8a6b4a;
 letter-spacing:1px; opacity:0.85;
 }
 
-/* ============================================================
-FOLHA QUE VIRA (frente + verso colados)
-============================================================ */
-.flip-leaf {
-position:absolute;
-width:min(92vw, 520px);
-height:min(80vh, 760px);
-transform-style: preserve-3d;
-transform-origin: left center;   /* padrão: vira pra frente */
-backface-visibility: hidden;
--webkit-backface-visibility: hidden;
-will-change: transform;
-z-index: 60;
-pointer-events: none;
-}
-
-.flip-leaf .leaf-face {
-position:absolute; inset:0;
-backface-visibility: hidden;
--webkit-backface-visibility: hidden;
-overflow: hidden;
-border-radius: 6px;
-box-shadow:
-0 20px 40px rgba(0,0,0,0.5),
-inset 0 0 0 1px rgba(120,80,40,0.2),
-inset 0 0 80px rgba(160,120,70,0.25);
-background:#f5ecd8;
-background-image:
-repeating-linear-gradient(0deg, rgba(160,120,70,0.04) 0 2px, transparent 2px 4px),
-radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6), transparent 70%);
-display:flex; flex-direction:column;
-padding:22px 22px 40px;
-}
-
-/* verso: já começa rotacionado 180° pra aparecer depois dos 90° */
-.flip-leaf .leaf-face.back {
-transform: rotateY(180deg);
-background:#efe3cc;
-background-image:
-linear-gradient(270deg, rgba(90,60,30,0.22), transparent 30%),
-repeating-linear-gradient(0deg, rgba(160,120,70,0.05) 0 2px, transparent 2px 4px);
-}
-
-/* sombra dinâmica — só opacity muda */
-.flip-leaf .leaf-shade {
-position:absolute; inset:0;
-pointer-events:none;
-will-change: opacity;
-opacity: 0;
-background: linear-gradient(90deg, rgba(30,15,5,0.55), rgba(30,15,5,0) 55%);
-border-radius: 6px;
-}
-.flip-leaf.dir-back .leaf-shade {
-background: linear-gradient(270deg, rgba(30,15,5,0.55), rgba(30,15,5,0) 55%);
-}
-
-/* ============================================================
-ZOOM OVERLAY
-============================================================ */
+/* ---- ZOOM OVERLAY (com transição real de opacity) ---- */
 #zoom-overlay {
 position: fixed; inset: 0;
 background: rgba(20, 10, 5, 0.92);
-display: flex; align-items: center; justify-content: center;
+display: flex;
+align-items: center; justify-content: center;
 z-index: 500; padding: 20px;
 cursor: zoom-out;
-opacity: 0; visibility: hidden;
+opacity: 0;
+visibility: hidden;
 transition: opacity 0.25s ease, visibility 0s linear 0.25s;
 outline: none;
 }
 #zoom-overlay.visible {
-opacity: 1; visibility: visible;
+opacity: 1;
+visibility: visible;
 transition: opacity 0.25s ease, visibility 0s;
 }
 #zoom-overlay img {
-max-width: 95vw; max-height: 95vh; object-fit: contain;
+max-width: 95vw;
+max-height: 95vh;
+object-fit: contain;
 box-shadow: 0 10px 40px rgba(0,0,0,0.8);
 filter: sepia(0.25) contrast(1.05) saturate(0.9);
--webkit-user-drag: none; user-drag: none;
+-webkit-user-drag: none;
+user-drag: none;
 }
 
-/* ============================================================
-CONTROLES
-============================================================ */
+/* ---- CONTROLES ---- */
 .nav {
 position:absolute; bottom:0; left:0; right:0;
 display:flex; justify-content:space-between;
@@ -291,8 +255,7 @@ background:#2b1810;
 }
 
 @media (max-width:480px) {
-.page, .flip-leaf { width:94vw; height:78vh; }
-.page, .flip-leaf .leaf-face { padding:16px 16px 36px; }
+.page { width:94vw; height:78vh; padding:16px 16px 36px; }
 .photo { padding:8px 8px 0; }
 .photo img { max-height: 50vh; }
 .photo .caption { font-size:12px; margin:8px 0 10px; }
@@ -302,6 +265,7 @@ background:#2b1810;
 }
 
 @media (prefers-reduced-motion: reduce) {
+.page { transition-duration: 1ms !important; }
 #zoom-overlay { transition-duration: 1ms !important; }
 }
 </style>
@@ -326,8 +290,6 @@ background:#2b1810;
 <script>
 const PHOTOS_DIR = 'fotos/';
 const MANIFEST_URL = PHOTOS_DIR + 'manifest.json';
-const HINT_KEY = 'album_hint_seen_v1';
-const DURATION = 650;
 
 const book = document.getElementById('book');
 const loading = document.getElementById('loading');
@@ -337,15 +299,13 @@ const nextBtn = document.getElementById('next');
 const zoomOverlay = document.getElementById('zoom-overlay');
 const zoomImg = zoomOverlay.querySelector('img');
 
-const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 let photos = [];
 let pages = [];
 let current = 0;
 let animating = false;
 
 /* ============================================================
-ZOOM
+ZOOM OVERLAY
 ============================================================ */
 function openZoom(src, alt) {
 if (zoomOverlay.classList.contains('visible')) return;
@@ -362,23 +322,39 @@ zoomOverlay.setAttribute('aria-hidden', 'true');
 zoomImg.src = '';
 }
 zoomOverlay.addEventListener('click', closeZoom);
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeZoom(); });
+document.addEventListener('keydown', e => {
+if (e.key === 'Escape') closeZoom();
+});
 
 /* ============================================================
 DESCOBERTA
 ============================================================ */
 async function discoverPhotos() {
+console.log('🔍 Procurando fotos...');
+
 try {
-const r = await fetch(MANIFEST_URL + '?t=' + Date.now());
-if (r.ok) { const n = normalizeList(await r.json()); if (n.length) return n; }
-} catch(e) { console.error('manifest:', e); }
+const url = MANIFEST_URL + '?t=' + Date.now();
+const r = await fetch(url);
+if (r.ok) {
+const list = await r.json();
+const normalized = normalizeList(list);
+if (normalized.length) return normalized;
+}
+} catch(e) { console.error('Erro manifest:', e); }
+
 try {
 const r = await fetch('fotos.json?t=' + Date.now());
-if (r.ok) { const n = normalizeList(await r.json()); if (n.length) return n; }
+if (r.ok) {
+const list = await r.json();
+const normalized = normalizeList(list);
+if (normalized.length) return normalized;
+}
 } catch(e) {}
+
 try {
 const host = location.hostname;
-const repo = location.pathname.split('/').filter(Boolean)[0];
+const parts = location.pathname.split('/').filter(Boolean);
+const repo = parts[0];
 if (host.endsWith('github.io') && repo) {
 const user = host.split('.')[0];
 const api = `https://api.github.com/repos/${user}/${repo}/contents/fotos`;
@@ -392,13 +368,15 @@ const files = data
 if (files.length) return normalizeList(files);
 }
 }
-} catch(e) { console.error('api:', e); }
+} catch(e) { console.error('Erro API:', e); }
+
 return [];
 }
 
 function normalizeList(list) {
 if (!Array.isArray(list)) return [];
-const seen = new Set(); const out = [];
+const seen = new Set();
+const out = [];
 for (const item of list) {
 let file, caption;
 if (typeof item === 'string') {
@@ -407,7 +385,9 @@ caption = item.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
 } else if (item && item.file) {
 file = item.file;
 caption = item.caption || item.file.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
-} else continue;
+} else {
+continue;
+}
 if (/^capa\.(jpe?g|png|webp|gif|bmp)$/i.test(file)) continue;
 if (seen.has(file)) continue;
 seen.add(file);
@@ -418,7 +398,9 @@ return out;
 
 function buildPages(fileList) {
 const pgs = [{ type:'cover' }];
-for (let i = 0; i < fileList.length; i++) pgs.push({ type:'photo', items:[fileList[i]] });
+for (let i = 0; i < fileList.length; i++) {
+pgs.push({ type:'photo', items:[fileList[i]] });
+}
 if (fileList.length > 0) pgs.push({ type:'end' });
 return pgs;
 }
@@ -426,12 +408,17 @@ return pgs;
 /* ============================================================
 RENDER
 ============================================================ */
-function pageInnerHTML(page, index) {
+function renderPage(page, index) {
+const el = document.createElement('div');
+el.className = 'page';
+el.dataset.index = index;
+
 if (page.type === 'cover') {
-return `<div class="cover-img"></div>`;
-}
-if (page.type === 'end') {
-return `
+el.classList.add('cover');
+el.innerHTML = `<div class="cover-img"></div>`;
+} else if (page.type === 'end') {
+el.classList.add('end-page');
+el.innerHTML = `
 <div class="end-content">
 <div class="end-ornament">❦</div>
 <h1 class="end-title">Continua…</h1>
@@ -442,51 +429,67 @@ as fotos ficam,<br>
 e o amor permanece.
 </p>
 <div class="end-line"></div>
-<p class="end-count">${photos.length} ${photos.length === 1 ? 'fotografia' : 'fotografias'}</p>
 <p class="end-signature">Nossa família</p>
 </div>
 `;
-}
-// photo
-let html = `<div class="photo-frame">`;
-const item = page.items[0];
+} else {
+const frame = document.createElement('div');
+frame.className = 'photo-frame';
+
+page.items.forEach((item) => {
+const wrap = document.createElement('div');
+wrap.className = 'photo';
+
 const seed = (item.file.length * (index + 1)) % 3;
-html += `<div class="photo" style="--rot:${(seed - 1) * 0.8}deg">
-<img src="${PHOTOS_DIR + encodeURIComponent(item.file)}" alt="${item.caption.replace(/"/g,'&quot;')}" loading="lazy" decoding="async" draggable="false">
-<div class="caption">${item.caption.replace(/</g,'&lt;')}</div>
-</div>`;
-html += `</div>`;
-html += `<div class="page-number">— ${index} —</div>`;
-return html;
-}
+wrap.style.setProperty('--rot', (seed - 1) * 0.8 + 'deg');
 
-function renderPage(page, index) {
-const el = document.createElement('div');
-el.className = 'page';
-el.dataset.index = index;
-if (page.type === 'cover') el.classList.add('cover');
-if (page.type === 'end') el.classList.add('end-page');
-el.innerHTML = pageInnerHTML(page, index);
+const img = document.createElement('img');
+img.src = PHOTOS_DIR + encodeURIComponent(item.file);
+img.alt = item.caption;
+img.loading = 'lazy';
+img.decoding = 'async';
+img.draggable = false;
 
-// bind zoom nas imagens
-el.querySelectorAll('img').forEach(img => {
 img.onerror = () => {
 img.onerror = null;
 img.style.display = 'none';
 const ph = document.createElement('div');
 ph.className = 'placeholder';
 ph.textContent = '📷 foto indisponível';
-img.parentNode.insertBefore(ph, img);
+wrap.insertBefore(ph, img);
 };
-let downX = 0, downY = 0, lastTap = 0;
-img.addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; });
+
+let downX = 0, downY = 0;
+let lastTap = 0;
+img.addEventListener('pointerdown', e => {
+downX = e.clientX;
+downY = e.clientY;
+});
 img.addEventListener('pointerup', e => {
 if (Math.hypot(e.clientX - downX, e.clientY - downY) > 10) return;
 const now = Date.now();
-if (now - lastTap < 350) openZoom(img.src, img.alt);
+if (now - lastTap < 350) {
+openZoom(img.src, img.alt);
+}
 lastTap = now;
 });
+
+const cap = document.createElement('div');
+cap.className = 'caption';
+cap.textContent = item.caption;
+
+wrap.appendChild(img);
+wrap.appendChild(cap);
+frame.appendChild(wrap);
 });
+
+el.appendChild(frame);
+
+const pn = document.createElement('div');
+pn.className = 'page-number';
+pn.textContent = `— ${index} —`;
+el.appendChild(pn);
+}
 return el;
 }
 
@@ -496,13 +499,15 @@ PRELOAD
 const preloadCache = new Set();
 function preloadPage(index) {
 const p = pages[index];
-if (!p || p.type !== 'photo') return;
+if (!p) return;
+if (p.type === 'photo') {
 p.items.forEach(item => {
 if (preloadCache.has(item.file)) return;
 preloadCache.add(item.file);
 const img = new Image();
 img.src = PHOTOS_DIR + encodeURIComponent(item.file);
 });
+}
 }
 function preloadAround() {
 preloadPage(current + 1);
@@ -511,11 +516,12 @@ preloadPage(current - 1);
 }
 
 /* ============================================================
-JANELA
+JANELA DE 3 PÁGINAS
 ============================================================ */
 function mountWindow() {
 book.innerHTML = '';
-[current - 1, current, current + 1].forEach(i => {
+const order = [current - 1, current, current + 1];
+order.forEach(i => {
 if (i < 0 || i >= pages.length) return;
 const el = renderPage(pages[i], i);
 if (i === current) el.classList.add('is-active');
@@ -527,18 +533,18 @@ book.appendChild(el);
 
 function refreshWindow() {
 [...book.children].forEach(el => {
-if (el.classList.contains('flip-leaf')) return;
 const i = +el.dataset.index;
 if (i < current - 1 || i > current + 1) el.remove();
 });
 [current - 1, current, current + 1].forEach(i => {
 if (i < 0 || i >= pages.length) return;
-if (!book.querySelector(`.page[data-index="${i}"]`)) {
-book.appendChild(renderPage(pages[i], i));
+if (!book.querySelector(`[data-index="${i}"]`)) {
+const el = renderPage(pages[i], i);
+el.classList.add(i < current ? 'is-prev' : i > current ? 'is-next' : 'is-active');
+book.appendChild(el);
 }
 });
 [...book.children].forEach(el => {
-if (el.classList.contains('flip-leaf')) return;
 const i = +el.dataset.index;
 el.classList.toggle('is-active', i === current);
 el.classList.toggle('is-prev',   i <  current);
@@ -552,98 +558,30 @@ nextBtn.disabled = current >= pages.length - 1;
 }
 
 /* ============================================================
-FOLHA QUE VIRA — uma folha, duas faces
-============================================================
-FRENTE (direction = 1):
-- folha começa em 0°, gira até -180° sobre o eixo ESQUERDO.
-- face FRONT = página atual (some ao passar de 90°).
-- face BACK  = próxima página, pré-rotacionada em 180°, aparece
-  naturalmente após 90°.
-
-TRÁS (direction = -1):
-- folha começa em 0°, gira até +180° sobre o eixo DIREITO.
-- face FRONT = página atual (some ao passar de 90°).
-- face BACK  = página anterior, pré-rotacionada, aparece após 90°.
-============================================================ */
-let flipLeaf = null;
-
-function buildFlipLeaf(underPage, overPage, direction) {
-// underPage = página que fica "por baixo" (o resultado)
-// overPage  = página que está sendo virada (a atual)
-const leaf = document.createElement('div');
-leaf.className = 'flip-leaf';
-if (direction < 0) leaf.classList.add('dir-back');
-
-// origem do giro
-if (direction > 0) {
-leaf.style.transformOrigin = 'left center';
-leaf.style.left = '50%';   // metade direita do palco (onde a página está)
-leaf.style.marginLeft = 'calc(-1 * min(46vw, 260px))'; // desloca pra cobrir a página
-} else {
-leaf.style.transformOrigin = 'right center';
-leaf.style.right = '50%';
-leaf.style.marginRight = 'calc(-1 * min(46vw, 260px))';
-}
-// Nota: o leaf ocupa exatamente o tamanho da .page; centralizamos via left/right.
-leaf.style.left = '50%';
-leaf.style.transform = 'translate3d(-50%, 0, 0) rotateY(0deg)';
-
-const front = document.createElement('div');
-front.className = 'leaf-face front';
-front.innerHTML = overPage.innerHTML;
-
-const back = document.createElement('div');
-back.className = 'leaf-face back';
-back.innerHTML = underPage.innerHTML;
-
-const shade = document.createElement('div');
-shade.className = 'leaf-shade';
-shade.style.opacity = '0';
-
-leaf.appendChild(front);
-leaf.appendChild(back);
-leaf.appendChild(shade);
-
-// rebind zoom nas imagens clonadas
-leaf.querySelectorAll('img').forEach(img => {
-let downX = 0, downY = 0, lastTap = 0;
-img.addEventListener('pointerdown', e => { downX = e.clientX; downY = e.clientY; });
-img.addEventListener('pointerup', e => {
-if (Math.hypot(e.clientX - downX, e.clientY - downY) > 10) return;
-const now = Date.now();
-if (now - lastTap < 350) openZoom(img.src, img.alt);
-lastTap = now;
-});
-});
-
-book.appendChild(leaf);
-return { leaf, shade };
-}
-
-function setLeafProgress(progress, direction) {
-if (!flipLeaf) return;
-const { leaf, shade } = flipLeaf;
-const angle = (direction > 0 ? -1 : 1) * 180 * progress;
-leaf.style.transform = `translate3d(-50%, 0, 0) rotateY(${angle}deg)`;
-// sombra: 0 → 0.85 no meio → 0
-shade.style.opacity = String(Math.sin(progress * Math.PI) * 0.85);
-}
-
-function destroyLeaf() {
-if (flipLeaf && flipLeaf.leaf) flipLeaf.leaf.remove();
-flipLeaf = null;
-}
-
-/* ============================================================
-NAVEGAÇÃO
+NAVEGAÇÃO PROGRAMÁTICA (à prova de background/aba inativa)
 ============================================================ */
 function cancelDrag() {
 if (!dragState) return;
 book.classList.remove('grabbing');
-destroyLeaf();
-const active = book.querySelector('.page.is-active');
-if (active) active.style.opacity = '';
+[...book.children].forEach(el => {
+el.classList.remove('dragging');
+el.style.transform = '';
+el.style.opacity = '';
+});
 dragState = null;
+}
+
+function waitTransitionEnd(el, fallbackMs, cb) {
+let done = false;
+const finish = () => {
+if (done) return;
+done = true;
+el.removeEventListener('transitionend', finish);
+clearTimeout(timer);
+cb();
+};
+const timer = setTimeout(finish, fallbackMs);
+el.addEventListener('transitionend', finish, { once: true });
 }
 
 function go(direction) {
@@ -652,52 +590,17 @@ cancelDrag();
 const target = current + direction;
 if (target < 0 || target >= pages.length) return;
 
-const fromEl = book.querySelector(`.page[data-index="${current}"]`);
-if (!fromEl) return;
-
-// garante que a próxima já está montada por baixo
-refreshWindow();
-const toEl = book.querySelector(`.page[data-index="${target}"]`);
-if (!toEl) return;
-
-// esconde a página de baixo (vai aparecer conforme a folha levanta)
-toEl.style.opacity = '0';
-toEl.classList.remove('is-prev','is-next');
-toEl.classList.add('is-active');
-fromEl.classList.remove('is-active');
-fromEl.style.opacity = '0';
-
-flipLeaf = buildFlipLeaf(toEl, fromEl, direction);
-setLeafProgress(0, direction);
-
 animating = true;
-
-requestAnimationFrame(() => {
-requestAnimationFrame(() => {
-const dur = reduceMotion ? 1 : DURATION;
-const ease = 'cubic-bezier(0.45, 0.05, 0.55, 0.95)';
-flipLeaf.leaf.style.transition = `transform ${dur}ms ${ease}`;
-flipLeaf.shade.style.transition = `opacity ${dur}ms ${ease}`;
-
-setLeafProgress(1, direction);
-
-const done = () => {
 current = target;
-destroyLeaf();
-[...book.children].forEach(el => {
-if (el.classList.contains('page')) el.style.opacity = '';
-});
 refreshWindow();
 updateNav();
+
+const active = book.querySelector('.is-active');
+if (!active) { animating = false; preloadAround(); return; }
+
+waitTransitionEnd(active, 600, () => {
 animating = false;
 preloadAround();
-};
-const timer = setTimeout(done, dur + 40);
-flipLeaf.leaf.addEventListener('transitionend', () => {
-clearTimeout(timer);
-if (animating) done();
-}, { once: true });
-});
 });
 }
 
@@ -710,13 +613,13 @@ if (e.key === 'ArrowLeft')  go(-1);
 });
 
 /* ============================================================
-DRAG
+DRAG EM TEMPO REAL
 ============================================================ */
 let dragState = null;
 
 function dragStart(x, pointerId) {
 if (animating) return;
-dragState = { startX: x, dx: 0, dir: 0, w: book.clientWidth, pointerId, started: false };
+dragState = { startX: x, dx: 0, dir: 0, w: book.clientWidth, pointerId };
 book.classList.add('grabbing');
 }
 
@@ -725,78 +628,69 @@ if (!dragState) return;
 const dx = x - dragState.startX;
 dragState.dx = dx;
 
-if (!dragState.started) {
+if (!dragState.dir) {
 if (Math.abs(dx) < 10) return;
 const dir = dx < 0 ? 1 : -1;
 const target = current + dir;
 if (target < 0 || target >= pages.length) return;
 dragState.dir = dir;
-dragState.started = true;
-
-const fromEl = book.querySelector(`.page[data-index="${current}"]`);
 refreshWindow();
-const toEl = book.querySelector(`.page[data-index="${target}"]`);
-if (!fromEl || !toEl) { dragState.started = false; return; }
-
-toEl.style.opacity = '0';
-toEl.classList.remove('is-prev','is-next');
-toEl.classList.add('is-active');
-fromEl.classList.remove('is-active');
-fromEl.style.opacity = '0';
-
-flipLeaf = buildFlipLeaf(toEl, fromEl, dir);
-setLeafProgress(0, dir);
+const active   = book.querySelector('.is-active');
+const incoming = book.querySelector(dir > 0 ? '.is-next' : '.is-prev');
+active?.classList.add('dragging');
+incoming?.classList.add('dragging');
 }
-if (!dragState.started) return;
+if (!dragState.dir) return;
 
 const progress = Math.min(Math.abs(dx) / (dragState.w * 0.9), 1);
-setLeafProgress(progress, dragState.dir);
+const dir = dragState.dir;
+const active   = book.querySelector('.is-active');
+const incoming = book.querySelector(dir > 0 ? '.is-next' : '.is-prev');
+if (!active || !incoming) return;
+
+const activeX     = -dir * progress * 60;
+const activeScale = 1 - progress * 0.06;
+const incomingX   = dir * (60 - progress * 60);
+const incomingScale = 0.94 + progress * 0.06;
+
+active.style.transform   = `translate3d(${activeX}%, 0, 0) scale(${activeScale})`;
+active.style.opacity     = String(1 - progress);
+incoming.style.transform = `translate3d(${incomingX}%, 0, 0) scale(${incomingScale})`;
+incoming.style.opacity   = String(progress);
 }
 
 function dragEnd() {
 book.classList.remove('grabbing');
 if (!dragState) return;
 
-const { dir, dx, w, started } = dragState;
-if (!started) { dragState = null; return; }
-
+const { dir, dx, w } = dragState;
 const progress = Math.min(Math.abs(dx) / (w * 0.9), 1);
 const commit = progress > 0.3 || Math.abs(dx) > w * 0.25;
-const direction = dir;
 
-const dur = reduceMotion ? 1 : (commit ? 420 : 300);
-const ease = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
-flipLeaf.leaf.style.transition = `transform ${dur}ms ${ease}`;
-flipLeaf.shade.style.transition = `opacity ${dur}ms ${ease}`;
+[...book.children].forEach(el => {
+el.classList.remove('dragging');
+el.style.transform = '';
+el.style.opacity = '';
+});
 
+if (!dir) { dragState = null; return; }
+
+const target = current + dir;
 if (commit) {
 animating = true;
-setLeafProgress(1, direction);
-const done = () => {
-current = current + direction;
-destroyLeaf();
-[...book.children].forEach(el => {
-if (el.classList.contains('page')) el.style.opacity = '';
-});
+current = target;
 refreshWindow();
 updateNav();
+
+const active = book.querySelector('.is-active');
+if (!active) { animating = false; preloadAround(); dragState = null; return; }
+
+waitTransitionEnd(active, 600, () => {
 animating = false;
 preloadAround();
-};
-const timer = setTimeout(done, dur + 40);
-flipLeaf.leaf.addEventListener('transitionend', () => {
-clearTimeout(timer);
-if (animating) done();
-}, { once: true });
-} else {
-setLeafProgress(0, direction);
-const timer = setTimeout(() => {
-destroyLeaf();
-[...book.children].forEach(el => {
-if (el.classList.contains('page')) el.style.opacity = '';
 });
+} else {
 refreshWindow();
-}, dur + 40);
 }
 dragState = null;
 }
@@ -839,16 +733,7 @@ mountWindow();
 updateNav();
 preloadAround();
 
-let seen = false;
-try { seen = localStorage.getItem(HINT_KEY) === '1'; } catch(_) {}
-if (seen) {
-hint.classList.add('hide');
-} else {
-setTimeout(() => {
-hint.classList.add('hide');
-try { localStorage.setItem(HINT_KEY, '1'); } catch(_) {}
-}, 4000);
-}
+setTimeout(() => hint.classList.add('hide'), 4000);
 }
 init();
 </script>
