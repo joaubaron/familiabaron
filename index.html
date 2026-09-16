@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#5c3a21">
+<title>Álbum de Fotos</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body {
+    height:100%; overflow:hidden;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background:#2b1810;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(120,80,40,0.3), transparent 60%),
+      radial-gradient(circle at 80% 80%, rgba(90,60,30,0.3), transparent 60%);
+    color:#3a2415;
+    user-select:none;
+  }
+
+  #book {
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    perspective:2000px;
+  }
+
+  .page {
+    position:absolute;
+    width:min(92vw, 520px);
+    height:min(80vh, 760px);
+    background:#f5ecd8;
+    border-radius:6px;
+    box-shadow:
+      0 20px 40px rgba(0,0,0,0.5),
+      inset 0 0 0 1px rgba(120,80,40,0.2),
+      inset 0 0 80px rgba(160,120,70,0.25);
+    background-image:
+      repeating-linear-gradient(0deg, rgba(160,120,70,0.04) 0 2px, transparent 2px 4px),
+      radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6), transparent 70%);
+    transform-origin: left center;
+    transition: transform 0.7s cubic-bezier(.4,.1,.2,1), opacity 0.7s;
+    backface-visibility:hidden;
+    overflow:hidden;
+    display:flex; flex-direction:column;
+    padding:22px 22px 40px;
+    transform-style:preserve-3d;
+  }
+  .page::after {
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(90deg, rgba(90,60,30,0.18), transparent 8%);
+    pointer-events:none;
+    border-radius:6px;
+  }
+
+  .page.turning-next { transform: rotateY(-180deg); opacity:0; }
+  .page.turning-prev { transform: rotateY(180deg); opacity:0; }
+
+  .page-number {
+    position:absolute; bottom:12px; left:0; right:0;
+    text-align:center; font-size:13px; color:#8a6b4a;
+    font-style:italic; letter-spacing:1px;
+  }
+
+  /* ---- MOLDURA + FOTO (corrigido: sem esticar, com respiro) ---- */
+  .photo-frame {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+  }
+
+  .photo {
+    background: #fff;
+    padding: 10px 10px 0;
+    border-radius: 2px;
+    box-shadow: 0 6px 18px rgba(60, 35, 15, 0.4);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 100%;
+    max-height: 100%;
+    transform: rotate(var(--rot, 0deg));
+  }
+
+  .photo img {
+    display: block;
+    max-width: 100%;
+    max-height: 55vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    filter: sepia(0.25) contrast(1.05) saturate(0.9);
+    background: #111;
+  }
+
+  .photo .caption {
+    font-family: 'Georgia', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: #7a5a3a;
+    text-align: center;
+    margin: 10px 0 12px;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 6px;
+    line-height: 1.2;
+  }
+
+  /* capa */
+  .cover {
+    background:#6b4423;
+    background-image:
+      radial-gradient(circle at 30% 20%, rgba(160,110,60,0.5), transparent 60%),
+      repeating-linear-gradient(45deg, rgba(0,0,0,0.06) 0 3px, transparent 3px 6px);
+    color:#f0e0c0;
+    justify-content:center; align-items:center; text-align:center;
+    border:8px solid #4a2e17;
+  }
+  .cover h1 { font-size:clamp(24px,6vw,40px); letter-spacing:2px; }
+  .cover p { margin-top:14px; font-style:italic; opacity:0.8; font-size:14px; }
+  .cover .ornament { font-size:40px; margin-bottom:20px; opacity:0.7; }
+
+  /* controles */
+  .nav {
+    position:absolute; bottom:0; left:0; right:0;
+    display:flex; justify-content:space-between;
+    padding:14px 18px;
+    z-index:100;
+  }
+  .nav button {
+    background:rgba(245,236,216,0.9);
+    border:none; border-radius:50%;
+    width:52px; height:52px;
+    font-size:22px; color:#5c3a21;
+    box-shadow:0 6px 16px rgba(0,0,0,0.4);
+    cursor:pointer; transition:transform 0.15s, background 0.2s;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .nav button:active { transform:scale(0.9); background:#e8d9bc; }
+  .nav button:disabled { opacity:0.3; }
+
+  .hint {
+    position:absolute; top:14px; left:0; right:0;
+    text-align:center; color:#d8c0a0; font-size:12px;
+    font-style:italic; letter-spacing:1px; z-index:100;
+    text-shadow:0 2px 4px rgba(0,0,0,0.6);
+    pointer-events:none; transition:opacity 0.6s;
+  }
+  .hint.hide { opacity:0; }
+
+  /* loading */
+  #loading {
+    position:absolute; inset:0; display:flex;
+    align-items:center; justify-content:center;
+    color:#e0c8a0; font-style:italic; z-index:200;
+    background:#2b1810;
+  }
+
+  @media (max-width:480px) {
+    .page { width:94vw; height:78vh; padding:16px 16px 36px; }
+    .photo { padding:8px 8px 0; }
+    .photo img { max-height: 50vh; }
+    .photo .caption { font-size:12px; margin:8px 0 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">Abrindo o álbum…</div>
+
+<div id="book"></div>
+
+<div class="hint" id="hint">Deslize ou toque nas setas para folhear</div>
+
+<div class="nav">
+  <button id="prev" aria-label="Página anterior">‹</button>
+  <button id="next" aria-label="Próxima página">›</button>
+</div>
+
+<script>
+const PHOTOS_DIR = 'fotos/';
+const MANIFEST_URL = PHOTOS_DIR + 'manifest.json';
+
+const book = document.getElementById('book');
+const loading = document.getElementById('loading');
+const hint = document.getElementById('hint');
+const prevBtn = document.getElementById('prev');
+const nextBtn = document.getElementById('next');
+
+let photos = [];   // agora: [{ file, caption }, ...]
+let pages = [];
+let current = 0;
+let animating = false;
+
+// ---------- Descobrir fotos ----------
+async function discoverPhotos() {
+  console.log('🔍 Procurando fotos...');
+
+  // 1) fotos/manifest.json
+  try {
+    const url = MANIFEST_URL + '?t=' + Date.now();
+    console.log('Tentando:', url);
+    const r = await fetch(url);
+    console.log('Status:', r.status, r.ok);
+    if (r.ok) {
+      const list = await r.json();
+      console.log('Lista recebida:', list);
+      const normalized = normalizeList(list);
+      if (normalized.length) return normalized;
+    }
+  } catch(e) { console.error('Erro manifest:', e); }
+
+  // 2) fotos.json na raiz
+  try {
+    const r = await fetch('fotos.json?t=' + Date.now());
+    if (r.ok) {
+      const list = await r.json();
+      const normalized = normalizeList(list);
+      if (normalized.length) return normalized;
+    }
+  } catch(e) {}
+
+  // 3) GitHub API (fallback — só funciona em repo público)
+  try {
+    const host = location.hostname;
+    const parts = location.pathname.split('/').filter(Boolean);
+    const repo = parts[0];
+    if (host.endsWith('github.io') && repo) {
+      const user = host.split('.')[0];
+      const api = `https://api.github.com/repos/${user}/${repo}/contents/fotos`;
+      const r = await fetch(api);
+      if (r.ok) {
+        const data = await r.json();
+        const files = data
+          .filter(f => f.type === 'file' && /\.(jpe?g|png|gif|webp|bmp)$/i.test(f.name))
+          .map(f => f.name)
+          .sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
+        if (files.length) return normalizeList(files);
+      }
+    }
+  } catch(e) { console.error('Erro API:', e); }
+
+  return [];
+}
+
+// Aceita tanto ["a.jpg"] quanto [{file, caption}]
+function normalizeList(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map(item => {
+    if (typeof item === 'string') {
+      return {
+        file: item,
+        caption: item.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ')
+      };
+    }
+    return {
+      file: item.file,
+      caption: item.caption || item.file.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ')
+    };
+  }).filter(x => x.file);
+}
+
+function buildPages(fileList) {
+  const pgs = [{ type:'cover' }];
+  for (let i = 0; i < fileList.length; i++) {
+    pgs.push({ type:'photo', items:[fileList[i]] });  // 1 foto por página
+  }
+  if (fileList.length > 0) pgs.push({ type:'end' });
+  return pgs;
+}
+
+// ---------- Render ----------
+function renderPage(page, index) {
+  const el = document.createElement('div');
+  el.className = 'page';
+  el.dataset.index = index;
+
+  if (page.type === 'cover') {
+    el.classList.add('cover');
+    el.innerHTML = `
+      <div class="ornament">❦</div>
+      <h1>Álbum de Fotos</h1>
+      <p>Memórias guardadas</p>
+    `;
+  } else if (page.type === 'end') {
+    el.classList.add('cover');
+    el.innerHTML = `
+      <div class="ornament">✿</div>
+      <h1>Fim</h1>
+      <p>${photos.length} memórias</p>
+    `;
+  } else {
+    const frame = document.createElement('div');
+    frame.className = 'photo-frame';
+
+    page.items.forEach((item) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'photo';
+
+      // rotação sutil, estável por página
+      const seed = (item.file.length * (index + 1)) % 3;
+      wrap.style.setProperty('--rot', (seed - 1) * 0.8 + 'deg');
+
+      const img = document.createElement('img');
+      img.src = PHOTOS_DIR + encodeURIComponent(item.file);
+      img.alt = item.caption;
+      img.loading = 'lazy';
+      img.decoding = 'async';
+
+      const cap = document.createElement('div');
+      cap.className = 'caption';
+      cap.textContent = item.caption;
+
+      wrap.appendChild(img);
+      wrap.appendChild(cap);
+      frame.appendChild(wrap);
+    });
+
+    el.appendChild(frame);
+
+    const pn = document.createElement('div');
+    pn.className = 'page-number';
+    pn.textContent = `— ${index} —`;
+    el.appendChild(pn);
+  }
+  return el;
+}
+
+function showPage(index) {
+  book.innerHTML = '';
+  const el = renderPage(pages[index], index);
+  book.appendChild(el);
+  current = index;
+  updateNav();
+}
+
+function updateNav() {
+  prevBtn.disabled = current <= 0;
+  nextBtn.disabled = current >= pages.length - 1;
+}
+
+// ---------- Navegação com animação ----------
+function turn(direction) {
+  if (animating) return;
+  const target = current + direction;
+  if (target < 0 || target >= pages.length) return;
+  animating = true;
+
+  const oldEl = book.querySelector('.page');
+  const newEl = renderPage(pages[target], target);
+  newEl.style.zIndex = 5;
+  if (direction > 0) newEl.classList.add('turning-next');
+  else newEl.classList.add('turning-prev');
+  book.appendChild(newEl);
+
+  void newEl.offsetWidth;
+
+  newEl.classList.remove('turning-next', 'turning-prev');
+  if (direction > 0) oldEl.classList.add('turning-next');
+  else oldEl.classList.add('turning-prev');
+
+  setTimeout(() => {
+    book.innerHTML = '';
+    book.appendChild(newEl);
+    current = target;
+    updateNav();
+    animating = false;
+  }, 720);
+}
+
+prevBtn.addEventListener('click', () => turn(-1));
+nextBtn.addEventListener('click', () => turn(1));
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') turn(1);
+  if (e.key === 'ArrowLeft') turn(-1);
+});
+
+// swipe
+let touchStartX = null;
+document.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+}, {passive:true});
+document.addEventListener('touchend', e => {
+  if (touchStartX === null) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 40) turn(dx < 0 ? 1 : -1);
+  touchStartX = null;
+}, {passive:true});
+
+// ---------- Init ----------
+async function init() {
+  const files = await discoverPhotos();
+  photos = files;
+
+  if (!photos.length) {
+    loading.innerHTML = 'Nenhuma foto encontrada em <b>/fotos/</b>.<br><small>Confira o arquivo fotos/manifest.json.</small>';
+    return;
+  }
+  pages = buildPages(photos);
+  loading.style.display = 'none';
+  showPage(0);
+
+  setTimeout(() => hint.classList.add('hide'), 4000);
+}
+
+init();
+
+// ---------- Service Worker ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
