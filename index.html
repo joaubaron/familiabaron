@@ -294,6 +294,28 @@ color:#e0c8a0; font-style:italic; z-index:200;
 background:#2b1810;
 }
 
+/* ---- INDICADOR DE PULL-TO-REFRESH ---- */
+#pull-indicator {
+position: absolute;
+top: 10px; left: 50%;
+transform: translateX(-50%) translateY(-60px);
+background: rgba(245,236,216,0.95);
+color: #5c3a21;
+padding: 8px 16px;
+border-radius: 20px;
+font-size: 13px; font-style: italic;
+box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+transition: transform 0.2s ease, opacity 0.2s ease;
+opacity: 0;
+pointer-events: none;
+z-index: 150;
+white-space: nowrap;
+}
+#pull-indicator.visible {
+transform: translateX(-50%) translateY(0);
+opacity: 1;
+}
+
 @media (max-width:480px) {
 .page { width:94vw; height:78vh; padding:16px 16px 36px; }
 .photo { padding:8px 8px 0; }
@@ -324,6 +346,8 @@ background:#2b1810;
 <button id="next" aria-label="Próxima página">›</button>
 </div>
 
+<div id="pull-indicator">↓ Continue puxando…</div>
+
 <div id="zoom-overlay" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
 <img alt="">
 </div>
@@ -340,6 +364,7 @@ const nextBtn = document.getElementById('next');
 const restartBtn = document.getElementById('restart');
 const zoomOverlay = document.getElementById('zoom-overlay');
 const zoomImg = zoomOverlay.querySelector('img');
+const pullIndicator = document.getElementById('pull-indicator');
 
 let photos = [];
 let pages = [];
@@ -693,7 +718,8 @@ dir: 0,
 w: book.clientWidth,
 pointerId,
 active: null,
-incoming: null
+incoming: null,
+captured: false
 };
 
 book.classList.add('grabbing');
@@ -796,34 +822,90 @@ dragState = null;
 }
 }
 
-book.addEventListener('pointerdown', e => {
-if (e.target.closest('.nav')) return;
-if (dragState || animating) return;
+/* ============================================================
+PULL-TO-REFRESH (substitui o nativo, funciona no PWA)
+============================================================ */
+let pull = null;
 
-try { book.setPointerCapture(e.pointerId); } catch(_) {}
-dragStart(e.clientX, e.clientY, e.pointerId);
+function updatePullIndicator() {
+  if (!pull || !pull.active) {
+    pullIndicator.classList.remove('visible');
+    return;
+  }
+  pullIndicator.classList.add('visible');
+  pullIndicator.textContent = pull.dy > 100
+    ? '↑ Solte para atualizar'
+    : '↓ Continue puxando…';
+}
+
+book.addEventListener('pointerdown', e => {
+  if (e.target.closest('.nav')) return;
+  if (dragState || animating) return;
+
+  const rect = book.getBoundingClientRect();
+  const startY = e.clientY;
+  const fromTop = (startY - rect.top) < rect.height * 0.3;
+
+  pull = fromTop
+    ? { startX: e.clientX, startY, dy: 0, active: false, id: e.pointerId }
+    : null;
+
+  dragStart(e.clientX, e.clientY, e.pointerId);
 });
 
 book.addEventListener('pointermove', e => {
-if (!dragState || e.pointerId !== dragState.pointerId) return;
-dragMove(e.clientX, e.clientY);
+  if (pull && e.pointerId === pull.id) {
+    pull.dy = e.clientY - pull.startY;
+    const dx = Math.abs(e.clientX - pull.startX);
+
+    if (!pull.active && dx > Math.abs(pull.dy) && dx > 8) {
+      pull = null;
+      updatePullIndicator();
+    } else if (pull.dy > 8 && Math.abs(pull.dy) > dx) {
+      if (dragState) cancelDrag();
+      pull.active = true;
+      updatePullIndicator();
+    }
+  }
+
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+
+  if (!dragState.captured && Math.abs(e.clientX - dragState.startX) > 10) {
+    try { book.setPointerCapture(e.pointerId); } catch(_) {}
+    dragState.captured = true;
+  }
+
+  dragMove(e.clientX, e.clientY);
 });
 
 book.addEventListener('pointerup', e => {
-if (!dragState || e.pointerId !== dragState.pointerId) return;
+  if (pull && e.pointerId === pull.id) {
+    if (pull.active && pull.dy > 100) {
+      pullIndicator.classList.remove('visible');
+      pull = null;
+      location.reload();
+      return;
+    }
+    pull = null;
+    updatePullIndicator();
+  }
 
-try { book.releasePointerCapture(e.pointerId); } catch(_) {}
-dragEnd();
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  try { book.releasePointerCapture(e.pointerId); } catch(_) {}
+  dragEnd();
 });
 
 book.addEventListener('pointercancel', e => {
-if (!dragState || e.pointerId !== dragState.pointerId) return;
-dragEnd();
+  pull = null;
+  updatePullIndicator();
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  dragEnd();
 });
+
 window.addEventListener('pointerup', e => {
-if (!dragState || e.pointerId !== dragState.pointerId) return;
-try { book.releasePointerCapture(e.pointerId); } catch(_) {}
-dragEnd();
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  try { book.releasePointerCapture(e.pointerId); } catch(_) {}
+  dragEnd();
 });
 
 /* ============================================================
