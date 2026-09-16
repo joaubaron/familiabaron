@@ -25,6 +25,7 @@ display:flex; align-items:center; justify-content:center;
 cursor: grab;
 touch-action: pan-y;
 overflow: hidden;
+perspective: 1600px;
 }
 #book.grabbing { cursor: grabbing; }
 
@@ -44,22 +45,46 @@ inset 0 0 80px rgba(160,120,70,0.25);
 background-image:
 repeating-linear-gradient(0deg, rgba(160,120,70,0.04) 0 2px, transparent 2px 4px),
 radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6), transparent 70%);
-transform-origin: center center;
-backface-visibility:hidden;
+transform-origin: left center;
+backface-visibility: hidden;
 overflow:hidden;
 display:flex; flex-direction:column;
 padding:22px 22px 40px;
 
-will-change: transform, opacity;
-transition:
-transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1),
-opacity   320ms cubic-bezier(0.4, 0, 0.2, 1);
+will-change: transform;
+transform-style: preserve-3d;
+transition: transform 560ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-.page.is-active { transform: translate3d(0,0,0) scale(1); opacity:1; z-index:3; }
-.page.is-next   { transform: translate3d(60%,0,0) scale(0.94); opacity:0; z-index:2; pointer-events:none; }
-.page.is-prev   { transform: translate3d(-60%,0,0) scale(0.94); opacity:0; z-index:2; pointer-events:none; }
-.page.dragging  { transition: none; }
+.page.is-active {
+transform: rotateY(0deg);
+opacity:1;
+z-index:3;
+}
+
+.page.is-next,
+.page.is-prev {
+transform: rotateY(0deg);
+opacity:1;
+z-index:2;
+pointer-events:none;
+}
+
+.page.turn-forward {
+transform-origin: left center;
+transform: rotateY(-180deg);
+z-index:4;
+}
+
+.page.turn-back {
+transform-origin: right center;
+transform: rotateY(180deg);
+z-index:4;
+}
+
+.page.dragging {
+transition: none;
+}
 
 .page::after {
 content:''; position:absolute; inset:0;
@@ -558,21 +583,22 @@ nextBtn.disabled = current >= pages.length - 1;
 }
 
 /* ============================================================
-NAVEGAÇÃO PROGRAMÁTICA (à prova de background/aba inativa)
+NAVEGAÇÃO — EFEITO DE PÁGINA VIRANDO
 ============================================================ */
 function cancelDrag() {
 if (!dragState) return;
 book.classList.remove('grabbing');
+
 [...book.children].forEach(el => {
-el.classList.remove('dragging');
+el.classList.remove('dragging', 'turn-forward', 'turn-back');
 el.style.transform = '';
-el.style.opacity = '';
 });
 dragState = null;
 }
 
 function waitTransitionEnd(el, fallbackMs, cb) {
 let done = false;
+
 const finish = () => {
 if (done) return;
 done = true;
@@ -580,25 +606,29 @@ el.removeEventListener('transitionend', finish);
 clearTimeout(timer);
 cb();
 };
+
 const timer = setTimeout(finish, fallbackMs);
-el.addEventListener('transitionend', finish, { once: true });
+el.addEventListener('transitionend', finish, { once:true });
 }
 
 function go(direction) {
 if (animating) return;
-cancelDrag();
+
 const target = current + direction;
 if (target < 0 || target >= pages.length) return;
 
-animating = true;
-current = target;
-refreshWindow();
-updateNav();
-
 const active = book.querySelector('.is-active');
-if (!active) { animating = false; preloadAround(); return; }
+const incoming = book.querySelector(direction > 0 ? '.is-next' : '.is-prev');
 
-waitTransitionEnd(active, 600, () => {
+if (!active || !incoming) return;
+
+animating = true;
+active.classList.add(direction > 0 ? 'turn-forward' : 'turn-back');
+
+waitTransitionEnd(active, 700, () => {
+current = target;
+mountWindow();
+updateNav();
 animating = false;
 preloadAround();
 });
@@ -613,103 +643,131 @@ if (e.key === 'ArrowLeft')  go(-1);
 });
 
 /* ============================================================
-DRAG EM TEMPO REAL
+DRAG / SWIPE — A PÁGINA VIRA CONFORME O DEDO
 ============================================================ */
 let dragState = null;
 
 function dragStart(x, pointerId) {
 if (animating) return;
-dragState = { startX: x, dx: 0, dir: 0, w: book.clientWidth, pointerId };
+
+dragState = {
+startX: x,
+dx: 0,
+dir: 0,
+w: book.clientWidth,
+pointerId
+};
+
 book.classList.add('grabbing');
 }
 
 function dragMove(x) {
 if (!dragState) return;
+
 const dx = x - dragState.startX;
 dragState.dx = dx;
 
 if (!dragState.dir) {
 if (Math.abs(dx) < 10) return;
+
 const dir = dx < 0 ? 1 : -1;
 const target = current + dir;
-if (target < 0 || target >= pages.length) return;
+
+if (target < 0 || target >= pages.length) {
+dragState.dx = 0;
+return;
+}
+
 dragState.dir = dir;
-refreshWindow();
-const active   = book.querySelector('.is-active');
+
+const active = book.querySelector('.is-active');
 const incoming = book.querySelector(dir > 0 ? '.is-next' : '.is-prev');
+
 active?.classList.add('dragging');
 incoming?.classList.add('dragging');
 }
+
 if (!dragState.dir) return;
 
-const progress = Math.min(Math.abs(dx) / (dragState.w * 0.9), 1);
-const dir = dragState.dir;
-const active   = book.querySelector('.is-active');
-const incoming = book.querySelector(dir > 0 ? '.is-next' : '.is-prev');
-if (!active || !incoming) return;
+const progress = Math.min(
+Math.abs(dx) / (dragState.w * 0.9),
+1
+);
 
-const activeX     = -dir * progress * 60;
-const activeScale = 1 - progress * 0.06;
-const incomingX   = dir * (60 - progress * 60);
-const incomingScale = 0.94 + progress * 0.06;
+const active = book.querySelector('.is-active');
+if (!active) return;
 
-active.style.transform   = `translate3d(${activeX}%, 0, 0) scale(${activeScale})`;
-active.style.opacity     = String(1 - progress);
-incoming.style.transform = `translate3d(${incomingX}%, 0, 0) scale(${incomingScale})`;
-incoming.style.opacity   = String(progress);
+const angle = dragState.dir > 0
+? -180 * progress
+:  180 * progress;
+
+active.style.transform = `rotateY(${angle}deg)`;
 }
 
 function dragEnd() {
 book.classList.remove('grabbing');
+
 if (!dragState) return;
 
 const { dir, dx, w } = dragState;
 const progress = Math.min(Math.abs(dx) / (w * 0.9), 1);
-const commit = progress > 0.3 || Math.abs(dx) > w * 0.25;
-
-[...book.children].forEach(el => {
-el.classList.remove('dragging');
-el.style.transform = '';
-el.style.opacity = '';
-});
-
-if (!dir) { dragState = null; return; }
-
-const target = current + dir;
-if (commit) {
-animating = true;
-current = target;
-refreshWindow();
-updateNav();
+const commit = dir !== 0 && (progress > 0.28 || Math.abs(dx) > w * 0.22);
 
 const active = book.querySelector('.is-active');
-if (!active) { animating = false; preloadAround(); dragState = null; return; }
 
-waitTransitionEnd(active, 600, () => {
+if (!dir || !active) {
+cancelDrag();
+return;
+}
+
+if (commit) {
+animating = true;
+
+active.classList.remove('dragging');
+active.classList.add(dir > 0 ? 'turn-forward' : 'turn-back');
+active.style.transform = '';
+
+const target = current + dir;
+
+waitTransitionEnd(active, 700, () => {
+current = target;
+mountWindow();
+updateNav();
 animating = false;
 preloadAround();
+dragState = null;
 });
 } else {
-refreshWindow();
-}
+active.classList.remove('dragging');
+active.style.transform = '';
+
+const incoming = book.querySelector(dir > 0 ? '.is-next' : '.is-prev');
+incoming?.classList.remove('dragging');
+
 dragState = null;
+}
 }
 
 book.addEventListener('pointerdown', e => {
 if (e.target.closest('.nav')) return;
-if (dragState) return;
+if (dragState || animating) return;
+
 try { book.setPointerCapture(e.pointerId); } catch(_) {}
 dragStart(e.clientX, e.pointerId);
 });
+
 book.addEventListener('pointermove', e => {
 if (!dragState || e.pointerId !== dragState.pointerId) return;
 dragMove(e.clientX);
 });
+
 book.addEventListener('pointerup', e => {
 if (!dragState || e.pointerId !== dragState.pointerId) return;
+
 try { book.releasePointerCapture(e.pointerId); } catch(_) {}
 dragEnd();
 });
+
 book.addEventListener('pointercancel', e => {
 if (!dragState || e.pointerId !== dragState.pointerId) return;
 dragEnd();
