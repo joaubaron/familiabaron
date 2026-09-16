@@ -88,14 +88,14 @@ transition: none;
 
 /* Pequena animação ao recomeçar o álbum */
 @keyframes restartAlbum {
-  0%   { transform: rotateY(0deg) scale(1); }
-  45%  { transform: rotateY(-18deg) scale(0.98); }
-  100% { transform: rotateY(0deg) scale(1); }
+0%   { transform: rotateY(0deg) scale(1); }
+45%  { transform: rotateY(-18deg) scale(0.98); }
+100% { transform: rotateY(0deg) scale(1); }
 }
 
 .page.restart-anim {
-  animation: restartAlbum 360ms ease-in-out;
-  z-index:5;
+animation: restartAlbum 360ms ease-in-out;
+z-index:5;
 }
 
 .page::after {
@@ -828,6 +828,17 @@ preloadAround();
 setTimeout(() => hint.classList.add('hide'), 4000);
 }
 init();
+
+/* 👇 ADICIONE O REGISTRO DO SERVICE WORKER AQUI 👇 */
+if ('serviceWorker' in navigator) {
+window.addEventListener('load', () => {
+navigator.serviceWorker.register('./sw.js')
+.then(reg => console.log('SW registrado:', reg.scope))
+.catch(err => console.error('Falha no registro do SW:', err));
+});
+}
+/* 👆 FIM DO REGISTRO 👆 */
+
 </script>
 </body>
 </html>
