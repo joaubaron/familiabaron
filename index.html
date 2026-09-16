@@ -63,7 +63,7 @@
     font-style:italic; letter-spacing:1px;
   }
 
-  /* ---- MOLDURA + FOTO (corrigido: sem esticar, com respiro) ---- */
+  /* ---- MOLDURA + FOTO ---- */
   .photo-frame {
     flex: 1;
     display: flex;
@@ -111,21 +111,29 @@
     line-height: 1.2;
   }
 
-  /* capa */
+  /* ---- CAPA (só imagem, sem texto) ---- */
   .cover {
-    background:#6b4423;
-    background-image:
-      radial-gradient(circle at 30% 20%, rgba(160,110,60,0.5), transparent 60%),
-      repeating-linear-gradient(45deg, rgba(0,0,0,0.06) 0 3px, transparent 3px 6px);
-    color:#f0e0c0;
-    justify-content:center; align-items:center; text-align:center;
-    border:8px solid #4a2e17;
+    position: relative;
+    padding: 0;
+    border: none;
+    overflow: hidden;
+    justify-content: center;
+    align-items: center;
+    background: #1a0f08;
   }
-  .cover h1 { font-size:clamp(24px,6vw,40px); letter-spacing:2px; }
-  .cover p { margin-top:14px; font-style:italic; opacity:0.8; font-size:14px; }
-  .cover .ornament { font-size:40px; margin-bottom:20px; opacity:0.7; }
 
-  /* controles */
+  .cover-img {
+    position: absolute;
+    inset: 0;
+    background-image: url('fotos/capa.jpg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: #1a0f08;
+    z-index: 1;
+  }
+
+  /* ---- CONTROLES ---- */
   .nav {
     position:absolute; bottom:0; left:0; right:0;
     display:flex; justify-content:space-between;
@@ -153,7 +161,6 @@
   }
   .hint.hide { opacity:0; }
 
-  /* loading */
   #loading {
     position:absolute; inset:0; display:flex;
     align-items:center; justify-content:center;
@@ -192,7 +199,7 @@ const hint = document.getElementById('hint');
 const prevBtn = document.getElementById('prev');
 const nextBtn = document.getElementById('next');
 
-let photos = [];   // agora: [{ file, caption }, ...]
+let photos = [];   // [{ file, caption }, ...]
 let pages = [];
 let current = 0;
 let animating = false;
@@ -204,12 +211,9 @@ async function discoverPhotos() {
   // 1) fotos/manifest.json
   try {
     const url = MANIFEST_URL + '?t=' + Date.now();
-    console.log('Tentando:', url);
     const r = await fetch(url);
-    console.log('Status:', r.status, r.ok);
     if (r.ok) {
       const list = await r.json();
-      console.log('Lista recebida:', list);
       const normalized = normalizeList(list);
       if (normalized.length) return normalized;
     }
@@ -225,7 +229,7 @@ async function discoverPhotos() {
     }
   } catch(e) {}
 
-  // 3) GitHub API (fallback — só funciona em repo público)
+  // 3) GitHub API (fallback)
   try {
     const host = location.hostname;
     const parts = location.pathname.split('/').filter(Boolean);
@@ -248,7 +252,7 @@ async function discoverPhotos() {
   return [];
 }
 
-// Aceita tanto ["a.jpg"] quanto [{file, caption}]
+// Aceita ["a.jpg"] ou [{file, caption}]
 function normalizeList(list) {
   if (!Array.isArray(list)) return [];
   return list.map(item => {
@@ -282,17 +286,15 @@ function renderPage(page, index) {
 
   if (page.type === 'cover') {
     el.classList.add('cover');
-    el.innerHTML = `
-      <div class="ornament">❦</div>
-      <h1>Álbum de Fotos</h1>
-      <p>Memórias guardadas</p>
-    `;
+    el.innerHTML = `<div class="cover-img"></div>`;
   } else if (page.type === 'end') {
     el.classList.add('cover');
     el.innerHTML = `
-      <div class="ornament">✿</div>
-      <h1>Fim</h1>
-      <p>${photos.length} memórias</p>
+      <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%;color:#f0e0c0;text-align:center;padding:30px;">
+        <div style="font-size:40px;margin-bottom:20px;opacity:0.85;">✿</div>
+        <h1 style="font-size:clamp(24px,6vw,40px);letter-spacing:2px;">Fim</h1>
+        <p style="margin-top:14px;font-style:italic;opacity:0.9;font-size:14px;">${photos.length} memórias</p>
+      </div>
     `;
   } else {
     const frame = document.createElement('div');
@@ -302,7 +304,6 @@ function renderPage(page, index) {
       const wrap = document.createElement('div');
       wrap.className = 'photo';
 
-      // rotação sutil, estável por página
       const seed = (item.file.length * (index + 1)) % 3;
       wrap.style.setProperty('--rot', (seed - 1) * 0.8 + 'deg');
 
