@@ -29,7 +29,7 @@ overflow: hidden;
 #book.grabbing { cursor: grabbing; }
 
 /* ============================================================
-PÁGINAS — transição suave baseada em transform + opacity
+PÁGINAS
 ============================================================ */
 .page {
 position:absolute;
@@ -56,29 +56,10 @@ transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1),
 opacity   320ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* estados das páginas */
-.page.is-active {
-transform: translate3d(0, 0, 0) scale(1);
-opacity: 1;
-z-index: 3;
-}
-.page.is-next {
-transform: translate3d(60%, 0, 0) scale(0.94);
-opacity: 0;
-z-index: 2;
-pointer-events: none;
-}
-.page.is-prev {
-transform: translate3d(-60%, 0, 0) scale(0.94);
-opacity: 0;
-z-index: 2;
-pointer-events: none;
-}
-
-/* durante o arraste: sem transition, segue o dedo */
-.page.dragging {
-transition: none;
-}
+.page.is-active { transform: translate3d(0,0,0) scale(1); opacity:1; z-index:3; }
+.page.is-next   { transform: translate3d(60%,0,0) scale(0.94); opacity:0; z-index:2; pointer-events:none; }
+.page.is-prev   { transform: translate3d(-60%,0,0) scale(0.94); opacity:0; z-index:2; pointer-events:none; }
+.page.dragging  { transition: none; }
 
 .page::after {
 content:''; position:absolute; inset:0;
@@ -126,6 +107,8 @@ filter: sepia(0.25) contrast(1.05) saturate(0.9);
 background: #111;
 transition: transform 0.3s ease;
 transform-origin: center;
+-webkit-user-drag: none;
+user-drag: none;
 }
 
 .photo .caption {
@@ -154,7 +137,7 @@ background: #e8dcc4;
 border-radius: 2px;
 }
 
-/* ---- CAPA (preenche tudo) ---- */
+/* ---- CAPA ---- */
 .cover {
 position: relative;
 padding: 0 !important;
@@ -162,7 +145,6 @@ border: none;
 overflow: hidden;
 background: #2a1a0e;
 }
-
 .cover-img {
 position: absolute;
 inset: 0;
@@ -181,87 +163,52 @@ justify-content: center;
 align-items: center;
 text-align: center;
 }
-
 .end-content {
-display: flex;
-flex-direction: column;
-align-items: center;
-justify-content: center;
-height: 100%;
-width: 100%;
-padding: 20px;
+display: flex; flex-direction: column;
+align-items: center; justify-content: center;
+height: 100%; width: 100%; padding: 20px;
 }
-
-.end-ornament {
-font-size: 44px;
-color: #8a6b4a;
-opacity: 0.75;
-margin-bottom: 22px;
-}
-
+.end-ornament { font-size:44px; color:#8a6b4a; opacity:0.75; margin-bottom:22px; }
 .end-title {
-font-family: 'Georgia', 'Times New Roman', serif;
+font-family:'Georgia','Times New Roman',serif;
 font-size: clamp(22px, 5vw, 30px);
-font-style: italic;
-font-weight: normal;
-letter-spacing: 2px;
-color: #7a5a3a;
-margin-bottom: 24px;
+font-style: italic; font-weight: normal;
+letter-spacing: 2px; color:#7a5a3a; margin-bottom: 24px;
 }
-
-.end-line {
-width: 80px;
-height: 1px;
-background: #b89a72;
-opacity: 0.7;
-margin: 0 0 24px 0;
-}
-
+.end-line { width:80px; height:1px; background:#b89a72; opacity:0.7; margin:0 0 24px 0; }
 .end-message {
-font-family: 'Georgia', 'Times New Roman', serif;
-font-style: italic;
-font-size: 16px;
-line-height: 1.9;
-color: #7a5a3a;
-max-width: 300px;
-margin-bottom: 24px;
+font-family:'Georgia','Times New Roman',serif;
+font-style: italic; font-size:16px; line-height:1.9;
+color:#7a5a3a; max-width:300px; margin-bottom:24px;
 }
-
 .end-count {
-font-family: 'Georgia', 'Times New Roman', serif;
-font-style: italic;
-font-size: 13px;
-color: #8a6b4a;
-letter-spacing: 1px;
-margin-bottom: 6px;
+font-family:'Georgia','Times New Roman',serif;
+font-style: italic; font-size:13px; color:#8a6b4a;
+letter-spacing:1px; margin-bottom:6px;
 }
-
 .end-signature {
-font-family: 'Georgia', 'Times New Roman', serif;
-font-style: italic;
-font-size: 13px;
-color: #8a6b4a;
-letter-spacing: 1px;
-opacity: 0.85;
+font-family:'Georgia','Times New Roman',serif;
+font-style: italic; font-size:13px; color:#8a6b4a;
+letter-spacing:1px; opacity:0.85;
 }
 
-/* ---- ZOOM OVERLAY (não corta pela página) ---- */
+/* ---- ZOOM OVERLAY (com transição real de opacity) ---- */
 #zoom-overlay {
-position: fixed;
-inset: 0;
+position: fixed; inset: 0;
 background: rgba(20, 10, 5, 0.92);
-display: none;
-align-items: center;
-justify-content: center;
-z-index: 500;
-padding: 20px;
+display: flex;
+align-items: center; justify-content: center;
+z-index: 500; padding: 20px;
 cursor: zoom-out;
 opacity: 0;
-transition: opacity 0.25s ease;
+visibility: hidden;
+transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+outline: none;
 }
 #zoom-overlay.visible {
-display: flex;
 opacity: 1;
+visibility: visible;
+transition: opacity 0.25s ease, visibility 0s;
 }
 #zoom-overlay img {
 max-width: 95vw;
@@ -269,14 +216,15 @@ max-height: 95vh;
 object-fit: contain;
 box-shadow: 0 10px 40px rgba(0,0,0,0.8);
 filter: sepia(0.25) contrast(1.05) saturate(0.9);
+-webkit-user-drag: none;
+user-drag: none;
 }
 
 /* ---- CONTROLES ---- */
 .nav {
 position:absolute; bottom:0; left:0; right:0;
 display:flex; justify-content:space-between;
-padding:14px 18px;
-z-index:100;
+padding:14px 18px; z-index:100;
 }
 .nav button {
 background:rgba(245,236,216,0.9);
@@ -318,6 +266,7 @@ background:#2b1810;
 
 @media (prefers-reduced-motion: reduce) {
 .page { transition-duration: 1ms !important; }
+#zoom-overlay { transition-duration: 1ms !important; }
 }
 </style>
 </head>
@@ -334,7 +283,9 @@ background:#2b1810;
 <button id="next" aria-label="Próxima página">›</button>
 </div>
 
-<div id="zoom-overlay" aria-hidden="true"><img alt=""></div>
+<div id="zoom-overlay" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+<img alt="">
+</div>
 
 <script>
 const PHOTOS_DIR = 'fotos/';
@@ -348,7 +299,7 @@ const nextBtn = document.getElementById('next');
 const zoomOverlay = document.getElementById('zoom-overlay');
 const zoomImg = zoomOverlay.querySelector('img');
 
-let photos = [];   // [{ file, caption }, ...]
+let photos = [];
 let pages = [];
 let current = 0;
 let animating = false;
@@ -357,12 +308,15 @@ let animating = false;
 ZOOM OVERLAY
 ============================================================ */
 function openZoom(src, alt) {
+if (zoomOverlay.classList.contains('visible')) return;
 zoomImg.src = src;
 zoomImg.alt = alt || '';
 zoomOverlay.classList.add('visible');
 zoomOverlay.setAttribute('aria-hidden', 'false');
+zoomOverlay.focus();
 }
 function closeZoom() {
+if (!zoomOverlay.classList.contains('visible')) return;
 zoomOverlay.classList.remove('visible');
 zoomOverlay.setAttribute('aria-hidden', 'true');
 zoomImg.src = '';
@@ -373,7 +327,7 @@ if (e.key === 'Escape') closeZoom();
 });
 
 /* ============================================================
-DESCOBERTA DE FOTOS
+DESCOBERTA
 ============================================================ */
 async function discoverPhotos() {
 console.log('🔍 Procurando fotos...');
@@ -434,9 +388,7 @@ caption = item.caption || item.file.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' 
 } else {
 continue;
 }
-// ignora capa
 if (/^capa\.(jpe?g|png|webp|gif|bmp)$/i.test(file)) continue;
-// deduplica
 if (seen.has(file)) continue;
 seen.add(file);
 out.push({ file, caption });
@@ -496,6 +448,7 @@ img.src = PHOTOS_DIR + encodeURIComponent(item.file);
 img.alt = item.caption;
 img.loading = 'lazy';
 img.decoding = 'async';
+img.draggable = false;
 
 img.onerror = () => {
 img.onerror = null;
@@ -506,7 +459,6 @@ ph.textContent = '📷 foto indisponível';
 wrap.insertBefore(ph, img);
 };
 
-// duplo-tap/clique para abrir zoom (com verificação de swipe)
 let downX = 0, downY = 0;
 let lastTap = 0;
 img.addEventListener('pointerdown', e => {
@@ -564,7 +516,7 @@ preloadPage(current - 1);
 }
 
 /* ============================================================
-JANELA DE 3 PÁGINAS (ant / atual / próx) — DOM persistente
+JANELA DE 3 PÁGINAS
 ============================================================ */
 function mountWindow() {
 book.innerHTML = '';
@@ -606,7 +558,7 @@ nextBtn.disabled = current >= pages.length - 1;
 }
 
 /* ============================================================
-NAVEGAÇÃO PROGRAMÁTICA
+NAVEGAÇÃO PROGRAMÁTICA (à prova de background/aba inativa)
 ============================================================ */
 function cancelDrag() {
 if (!dragState) return;
@@ -619,19 +571,37 @@ el.style.opacity = '';
 dragState = null;
 }
 
+function waitTransitionEnd(el, fallbackMs, cb) {
+let done = false;
+const finish = () => {
+if (done) return;
+done = true;
+el.removeEventListener('transitionend', finish);
+clearTimeout(timer);
+cb();
+};
+const timer = setTimeout(finish, fallbackMs);
+el.addEventListener('transitionend', finish, { once: true });
+}
+
 function go(direction) {
 if (animating) return;
 cancelDrag();
 const target = current + direction;
 if (target < 0 || target >= pages.length) return;
+
 animating = true;
 current = target;
 refreshWindow();
 updateNav();
-setTimeout(() => {
+
+const active = book.querySelector('.is-active');
+if (!active) { animating = false; preloadAround(); return; }
+
+waitTransitionEnd(active, 600, () => {
 animating = false;
 preloadAround();
-}, 440);
+});
 }
 
 prevBtn.addEventListener('click', () => go(-1));
@@ -711,10 +681,14 @@ animating = true;
 current = target;
 refreshWindow();
 updateNav();
-setTimeout(() => {
+
+const active = book.querySelector('.is-active');
+if (!active) { animating = false; preloadAround(); dragState = null; return; }
+
+waitTransitionEnd(active, 600, () => {
 animating = false;
 preloadAround();
-}, 440);
+});
 } else {
 refreshWindow();
 }
