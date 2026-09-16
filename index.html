@@ -24,7 +24,10 @@
     position:absolute; inset:0;
     display:flex; align-items:center; justify-content:center;
     perspective:2000px;
+    cursor: grab;
+    touch-action: pan-y;
   }
+  #book.grabbing { cursor: grabbing; }
 
   .page {
     position:absolute;
@@ -40,12 +43,12 @@
       repeating-linear-gradient(0deg, rgba(160,120,70,0.04) 0 2px, transparent 2px 4px),
       radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6), transparent 70%);
     transform-origin: left center;
-    transition: transform 0.7s cubic-bezier(.4,.1,.2,1), opacity 0.7s;
     backface-visibility:hidden;
     overflow:hidden;
     display:flex; flex-direction:column;
     padding:22px 22px 40px;
     transform-style:preserve-3d;
+    will-change: transform, filter;
   }
   .page::after {
     content:''; position:absolute; inset:0;
@@ -54,8 +57,15 @@
     border-radius:6px;
   }
 
-  .page.turning-next { transform: rotateY(-180deg); opacity:0; }
-  .page.turning-prev { transform-origin: right center; transform: rotateY(180deg); opacity:0; }
+  .page-shade {
+    position:absolute; inset:0;
+    pointer-events:none;
+    opacity:0;
+    border-radius:6px;
+    z-index:2;
+  }
+  .page-shade.next { background:linear-gradient(90deg, transparent 55%, rgba(30,16,6,0.8)); }
+  .page-shade.prev { background:linear-gradient(270deg, transparent 55%, rgba(30,16,6,0.8)); }
 
   .page-number {
     position:absolute; bottom:12px; left:0; right:0;
@@ -365,6 +375,9 @@ function renderPage(page, index) {
   el.className = 'page';
   el.dataset.index = index;
 
+  const shade = document.createElement('div');
+  shade.className = 'page-shade';
+
   if (page.type === 'cover') {
     el.classList.add('cover');
     el.innerHTML = `<div class="cover-img"></div>`;
@@ -433,6 +446,7 @@ function renderPage(page, index) {
     pn.textContent = `— ${index} —`;
     el.appendChild(pn);
   }
+  el.appendChild(shade);
   return el;
 }
 
@@ -463,35 +477,136 @@ function updateNav() {
   nextBtn.disabled = current >= pages.length - 1;
 }
 
-// ---------- Navegação com animação ----------
+// ---------- Navegação: arraste real + física de dobra ----------
+function easeOutCubic(x) { return 1 - Math.pow(1 - x, 3); }
+function easeInOutCubic(x) { return x < 0.5 ? 4*x*x*x : 1 - Math.pow(-2*x+2, 3)/2; }
+
+// Aplica o ângulo/sombra/sombra-projetada de acordo com o progresso t (0..1)
+function applyTurnVisual(el, direction, t) {
+  t = Math.min(Math.max(t, 0), 1);
+  const angle = direction > 0 ? -180 * t : 180 * t;
+  el.style.transformOrigin = direction > 0 ? 'left center' : 'right center';
+  el.style.transform = `rotateY(${angle}deg)`;
+
+  const darkness = Math.sin(t * Math.PI); // pico no meio do giro
+  const shade = el.querySelector('.page-shade');
+  if (shade) {
+    shade.className = 'page-shade ' + (direction > 0 ? 'next' : 'prev');
+    shade.style.opacity = (darkness * 0.7).toFixed(3);
+  }
+  const lift = darkness * 22;
+  const dx = direction > 0 ? -lift : lift;
+  el.style.filter = `drop-shadow(${dx}px 12px ${16 + lift}px rgba(0,0,0,${0.3 + darkness*0.3}))`;
+}
+
+function resetTurnVisual(el) {
+  el.style.transform = '';
+  el.style.filter = '';
+  el.style.transformOrigin = '';
+  const shade = el.querySelector('.page-shade');
+  if (shade) shade.style.opacity = 0;
+}
+
+// Animação programática (botões, teclado, swipe) do início ao fim
 function turn(direction) {
-  if (animating) return;
+  if (animating || drag) return;
   const target = current + direction;
   if (target < 0 || target >= pages.length) return;
   animating = true;
 
-  const oldEl = book.querySelector('.page');
-  const newEl = renderPage(pages[target], target);
-  newEl.style.zIndex = 5;
-  if (direction > 0) newEl.classList.add('turning-next');
-  else newEl.classList.add('turning-prev');
-  book.appendChild(newEl);
+  const topEl = book.querySelector('.page');
+  topEl.style.zIndex = 5;
+  const bottomEl = renderPage(pages[target], target);
+  bottomEl.style.zIndex = 1;
+  book.insertBefore(bottomEl, topEl);
 
-  void newEl.offsetWidth;
+  const dur = 520;
+  const startTime = performance.now();
+  function step(now) {
+    const p = Math.min((now - startTime) / dur, 1);
+    applyTurnVisual(topEl, direction, easeInOutCubic(p));
+    if (p < 1) {
+      requestAnimationFrame(step);
+    } else {
+      book.innerHTML = '';
+      book.appendChild(bottomEl);
+      current = target;
+      updateNav();
+      animating = false;
+      preloadPage(current + 1);
+      preloadPage(current - 1);
+    }
+  }
+  requestAnimationFrame(step);
+}
 
-  newEl.classList.remove('turning-next', 'turning-prev');
-  if (direction > 0) oldEl.classList.add('turning-next');
-  else oldEl.classList.add('turning-prev');
+// Arraste em tempo real (mouse/touch via Pointer Events)
+let drag = null;
 
-  setTimeout(() => {
-    book.innerHTML = '';
-    book.appendChild(newEl);
-    current = target;
-    updateNav();
-    animating = false;
-    preloadPage(current + 1);
-    preloadPage(current - 1);
-  }, 720);
+function dragStart(clientX) {
+  if (animating) return;
+  drag = { startX: clientX, width: book.clientWidth, direction: null, t: 0 };
+  book.classList.add('grabbing');
+}
+
+function dragMove(clientX) {
+  if (!drag) return;
+  const dx = clientX - drag.startX;
+
+  if (drag.direction === null) {
+    if (Math.abs(dx) < 8) return;
+    const dir = dx < 0 ? 1 : -1;
+    const target = current + dir;
+    if (target < 0 || target >= pages.length) { drag.direction = 0; return; }
+    drag.direction = dir;
+    drag.target = target;
+    drag.topEl = book.querySelector('.page');
+    drag.topEl.style.zIndex = 5;
+    drag.bottomEl = renderPage(pages[target], target);
+    drag.bottomEl.style.zIndex = 1;
+    book.insertBefore(drag.bottomEl, drag.topEl);
+  }
+  if (!drag.direction) return;
+
+  drag.t = Math.min(Math.abs(dx) / (drag.width * 0.8), 1);
+  applyTurnVisual(drag.topEl, drag.direction, drag.t);
+}
+
+function dragEnd() {
+  book.classList.remove('grabbing');
+  if (!drag || !drag.direction) { drag = null; return; }
+
+  const { topEl, bottomEl, direction, target, t } = drag;
+  const complete = t > 0.35;
+  animating = true;
+  drag = null;
+
+  const startT = t;
+  const endT = complete ? 1 : 0;
+  const dur = 240;
+  const startTime = performance.now();
+  function step(now) {
+    const p = Math.min((now - startTime) / dur, 1);
+    const eased = startT + (endT - startT) * easeOutCubic(p);
+    applyTurnVisual(topEl, direction, eased);
+    if (p < 1) {
+      requestAnimationFrame(step);
+    } else {
+      if (complete) {
+        book.innerHTML = '';
+        book.appendChild(bottomEl);
+        current = target;
+      } else {
+        bottomEl.remove();
+        resetTurnVisual(topEl);
+      }
+      updateNav();
+      animating = false;
+      preloadPage(current + 1);
+      preloadPage(current - 1);
+    }
+  }
+  requestAnimationFrame(step);
 }
 
 prevBtn.addEventListener('click', () => turn(-1));
@@ -502,17 +617,10 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft') turn(-1);
 });
 
-// swipe
-let touchStartX = null;
-document.addEventListener('touchstart', e => {
-  touchStartX = e.touches[0].clientX;
-}, {passive:true});
-document.addEventListener('touchend', e => {
-  if (touchStartX === null) return;
-  const dx = e.changedTouches[0].clientX - touchStartX;
-  if (Math.abs(dx) > 40) turn(dx < 0 ? 1 : -1);
-  touchStartX = null;
-}, {passive:true});
+book.addEventListener('pointerdown', e => dragStart(e.clientX));
+book.addEventListener('pointermove', e => dragMove(e.clientX));
+window.addEventListener('pointerup', dragEnd);
+window.addEventListener('pointercancel', dragEnd);
 
 // ---------- Init ----------
 async function init() {
