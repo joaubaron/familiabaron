@@ -1,15 +1,25 @@
-const CACHE = 'album-v1';
+// Service Worker
+// A versão é atualizada automaticamente pelo deploy.yml a cada push no GitHub Pages.
+const CACHE_VERSION = '15.09.2026-1619';
+const CACHE_NAME = `album-baron-${CACHE_VERSION}`;
+
 const CORE = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(c => c.addAll(CORE))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
@@ -17,24 +27,24 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;
 
-  // Página HTML: network-first (para pegar fotos novas)
+  // HTML: network-first (garante pegar versão nova)
   if (e.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
     e.respondWith(
       fetch(e.request).then(res => {
         const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copy));
+        caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
         return res;
       }).catch(() => caches.match(e.request))
     );
     return;
   }
 
-  // Fotos: network-first com cache fallback (auto-atualiza quando online)
+  // Fotos e manifest: network-first com fallback
   if (url.pathname.includes('/fotos/')) {
     e.respondWith(
       fetch(e.request).then(res => {
         const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copy));
+        caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
         return res;
       }).catch(() => caches.match(e.request))
     );
@@ -43,10 +53,12 @@ self.addEventListener('fetch', e => {
 
   // Resto: cache-first
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).then(res => {
-      const copy = res.clone();
-      caches.open(CACHE).then(c => c.put(e.request, copy));
-      return res;
-    }))
+    caches.match(e.request).then(r =>
+      r || fetch(e.request).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
+        return res;
+      })
+    )
   );
 });
