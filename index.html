@@ -111,22 +111,20 @@
     line-height: 1.2;
   }
 
-  /* ---- CAPA (só imagem, sem texto) ---- */
+  /* ---- CAPA (preenche tudo) ---- */
   .cover {
     position: relative;
-    padding: 0;
+    padding: 0 !important;
     border: none;
     overflow: hidden;
-    justify-content: center;
-    align-items: center;
-    background: #2a1a0e; 
+    background: #2a1a0e;
   }
 
   .cover-img {
     position: absolute;
     inset: 0;
     background-image: url('fotos/capa.jpg');
-    background-size: contain;
+    background-size: cover;
     background-repeat: no-repeat;
     background-position: center;
     background-color: #2a1a0e;
