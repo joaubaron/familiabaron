@@ -123,12 +123,83 @@
   .cover-img {
     position: absolute;
     inset: 0;
-   background-image: url('fotos/capa.webp');
+    background-image: url('fotos/capa.webp');
     background-size: cover;
     background-repeat: no-repeat;
     background-position: center;
     background-color: #2a1a0e;
     z-index: 1;
+  }
+
+  /* ---- PÁGINA FINAL (mesmo estilo das fotos) ---- */
+  .end-page {
+    padding: 22px 22px 40px;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  .end-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    padding: 20px;
+  }
+
+  .end-ornament {
+    font-size: 44px;
+    color: #8a6b4a;
+    opacity: 0.75;
+    margin-bottom: 22px;
+  }
+
+  .end-title {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: clamp(22px, 5vw, 30px);
+    font-style: italic;
+    font-weight: normal;
+    letter-spacing: 2px;
+    color: #7a5a3a;
+    margin-bottom: 24px;
+  }
+
+  .end-line {
+    width: 80px;
+    height: 1px;
+    background: #b89a72;
+    opacity: 0.7;
+    margin: 0 0 24px 0;
+  }
+
+  .end-message {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-style: italic;
+    font-size: 16px;
+    line-height: 1.9;
+    color: #7a5a3a;
+    max-width: 300px;
+    margin-bottom: 24px;
+  }
+
+  .end-count {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: #8a6b4a;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .end-signature {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: #8a6b4a;
+    letter-spacing: 1px;
+    opacity: 0.85;
   }
 
   /* ---- CONTROLES ---- */
@@ -171,6 +242,9 @@
     .photo { padding:8px 8px 0; }
     .photo img { max-height: 50vh; }
     .photo .caption { font-size:12px; margin:8px 0 10px; }
+    .end-ornament { font-size: 36px; margin-bottom: 18px; }
+    .end-message { font-size: 15px; }
+    .end-title { font-size: 22px; }
   }
 </style>
 </head>
@@ -250,7 +324,7 @@ async function discoverPhotos() {
   return [];
 }
 
-// Aceita ["a.jpg"] ou [{file, caption}]
+// Aceita ["a.jpg"] ou [{file, caption}] — ignora capa.*
 function normalizeList(list) {
   if (!Array.isArray(list)) return [];
   return list.map(item => {
@@ -264,7 +338,7 @@ function normalizeList(list) {
       file: item.file,
       caption: item.caption || item.file.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ')
     };
-  }).filter(x => x.file);
+  }).filter(x => x.file && !/^capa\.(jpe?g|png|webp)$/i.test(x.file));
 }
 
 function buildPages(fileList) {
@@ -286,12 +360,20 @@ function renderPage(page, index) {
     el.classList.add('cover');
     el.innerHTML = `<div class="cover-img"></div>`;
   } else if (page.type === 'end') {
-    el.classList.add('cover');
+    el.classList.add('end-page');
     el.innerHTML = `
-      <div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%;color:#f0e0c0;text-align:center;padding:30px;">
-        <div style="font-size:40px;margin-bottom:20px;opacity:0.85;">✿</div>
-        <h1 style="font-size:clamp(24px,6vw,40px);letter-spacing:2px;">Fim</h1>
-        <p style="margin-top:14px;font-style:italic;opacity:0.9;font-size:14px;">${photos.length} memórias</p>
+      <div class="end-content">
+        <div class="end-ornament">❦</div>
+        <h1 class="end-title">Continua…</h1>
+        <div class="end-line"></div>
+        <p class="end-message">
+          O tempo passa,<br>
+          as fotos ficam,<br>
+          e o amor permanece.
+        </p>
+        <div class="end-line"></div>
+        <p class="end-count">${photos.length} memórias guardadas</p>
+        <p class="end-signature">Família Baron</p>
       </div>
     `;
   } else {
