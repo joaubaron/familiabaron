@@ -86,6 +86,18 @@ z-index:4;
 transition: none;
 }
 
+/* Pequena animação ao recomeçar o álbum */
+@keyframes restartAlbum {
+  0%   { transform: rotateY(0deg) scale(1); }
+  45%  { transform: rotateY(-18deg) scale(0.98); }
+  100% { transform: rotateY(0deg) scale(1); }
+}
+
+.page.restart-anim {
+  animation: restartAlbum 360ms ease-in-out;
+  z-index:5;
+}
+
 .page::after {
 content:''; position:absolute; inset:0;
 background:linear-gradient(90deg, rgba(90,60,30,0.18), transparent 8%);
@@ -305,6 +317,7 @@ background:#2b1810;
 
 <div class="nav">
 <button id="prev" aria-label="Página anterior">‹</button>
+<button id="restart" aria-label="Recomeçar álbum" title="Recomeçar álbum">↩</button>
 <button id="next" aria-label="Próxima página">›</button>
 </div>
 
@@ -321,6 +334,7 @@ const loading = document.getElementById('loading');
 const hint = document.getElementById('hint');
 const prevBtn = document.getElementById('prev');
 const nextBtn = document.getElementById('next');
+const restartBtn = document.getElementById('restart');
 const zoomOverlay = document.getElementById('zoom-overlay');
 const zoomImg = zoomOverlay.querySelector('img');
 
@@ -580,6 +594,7 @@ el.classList.toggle('is-next',   i >  current);
 function updateNav() {
 prevBtn.disabled = current <= 0;
 nextBtn.disabled = current >= pages.length - 1;
+restartBtn.disabled = current === 0;
 }
 
 /* ============================================================
@@ -636,6 +651,26 @@ preloadAround();
 
 prevBtn.addEventListener('click', () => go(-1));
 nextBtn.addEventListener('click', () => go(1));
+
+/* Recomeçar: pequena animação e volta suave para a capa */
+function restartAlbum() {
+  if (animating || current === 0) return;
+  animating = true;
+  const active = book.querySelector('.is-active');
+  if (!active) { animating = false; return; }
+
+  active.classList.add('restart-anim');
+  setTimeout(() => {
+    active.classList.remove('restart-anim');
+    current = 0;
+    mountWindow();
+    updateNav();
+    preloadAround();
+    animating = false;
+  }, 360);
+}
+
+restartBtn.addEventListener('click', restartAlbum);
 
 document.addEventListener('keydown', e => {
 if (e.key === 'ArrowRight') go(1);
