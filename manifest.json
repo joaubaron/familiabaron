@@ -1,14 +1,16 @@
 {
-"name": "Álbum de Fotos Antigo",
-"short_name": "Álbum",
-"description": "Álbum de fotos estilo antigo com folheamento",
-"start_url": "./index.html",
-"display": "standalone",
-"orientation": "portrait",
-"background_color": "#2b1810",
-"theme_color": "#5c3a21",
-"icons": [
-{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-{ "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-]
+  "id": "/familiabaron/",
+  "name": "Álbum de Fotos Antigo",
+  "short_name": "Álbum",
+  "description": "Álbum de fotos estilo antigo com folheamento",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#2b1810",
+  "theme_color": "#5c3a21",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
 }
