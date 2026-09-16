@@ -320,7 +320,7 @@ background:#2b1810;
 
 <div class="nav">
 <button id="prev" aria-label="Página anterior">‹</button>
-<button id="restart" aria-label="Recomeçar álbum" title="Recomeçar álbum">↩</button>
+<button id="restart" aria-label="Recomeçar álbum" title="Recomeçar álbum">Início↩</button>
 <button id="next" aria-label="Próxima página">›</button>
 </div>
 
@@ -656,21 +656,16 @@ preloadAround();
 prevBtn.addEventListener('click', () => go(-1));
 nextBtn.addEventListener('click', () => go(1));
 
-restartBtn.addEventListener('click', async () => {
+restartBtn.addEventListener('click', () => {
 if (animating || current <= 0) return;
 animating = true;
-restartBtn.classList.add('restarting');
 
-while (current > 0) {
-current--;
-refreshWindow();
+current = 0;
+mountWindow();
 updateNav();
 preloadAround();
-await new Promise(resolve => setTimeout(resolve, 115));
-}
 
 animating = false;
-restartBtn.classList.remove('restarting');
 
 hint.classList.remove('hide');
 setTimeout(() => hint.classList.add('hide'), 2000);
@@ -697,7 +692,8 @@ dy: 0,
 dir: 0,
 w: book.clientWidth,
 pointerId,
-active: null
+active: null,
+incoming: null
 };
 
 book.classList.add('grabbing');
@@ -852,7 +848,7 @@ setTimeout(() => hint.classList.add('hide'), 4000);
 }
 init();
 
-/* 👇 ADICIONE O REGISTRO DO SERVICE WORKER AQUI 👇 */
+/* 👇 REGISTRO DO SERVICE WORKER 👇 */
 if ('serviceWorker' in navigator) {
 window.addEventListener('load', () => {
 navigator.serviceWorker.register('./sw.js')
