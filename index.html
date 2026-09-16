@@ -337,7 +337,6 @@ const hint = document.getElementById('hint');
 const prevBtn = document.getElementById('prev');
 const nextBtn = document.getElementById('next');
 const restartBtn = document.getElementById('restart');
-const restartBtn = document.getElementById('restart');
 const zoomOverlay = document.getElementById('zoom-overlay');
 const zoomImg = zoomOverlay.querySelector('img');
 
@@ -598,7 +597,6 @@ function updateNav() {
 prevBtn.disabled = current <= 0;
 nextBtn.disabled = current >= pages.length - 1;
 restartBtn.disabled = current <= 0;
-restartBtn.disabled = current === 0;
 }
 
 /* ============================================================
@@ -672,26 +670,6 @@ await new Promise(resolve => setTimeout(resolve, 115));
 animating = false;
 restartBtn.classList.remove('restarting');
 });
-
-/* Recomeçar: pequena animação e volta suave para a capa */
-function restartAlbum() {
-  if (animating || current === 0) return;
-  animating = true;
-  const active = book.querySelector('.is-active');
-  if (!active) { animating = false; return; }
-
-  active.classList.add('restart-anim');
-  setTimeout(() => {
-    active.classList.remove('restart-anim');
-    current = 0;
-    mountWindow();
-    updateNav();
-    preloadAround();
-    animating = false;
-  }, 360);
-}
-
-restartBtn.addEventListener('click', restartAlbum);
 
 document.addEventListener('keydown', e => {
 if (e.key === 'ArrowRight') go(1);
