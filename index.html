@@ -23,12 +23,16 @@
   #book {
     position:absolute; inset:0;
     display:flex; align-items:center; justify-content:center;
-    perspective:2000px;
     cursor: grab;
     touch-action: pan-y;
+    overflow: hidden;
   }
   #book.grabbing { cursor: grabbing; }
 
+  /* ============================================================
+     PÁGINAS — transição suave baseada em transform + opacity
+     (sem 3D, sem filter animado → só composição GPU)
+     ============================================================ */
   .page {
     position:absolute;
     width:min(92vw, 520px);
@@ -42,30 +46,49 @@
     background-image:
       repeating-linear-gradient(0deg, rgba(160,120,70,0.04) 0 2px, transparent 2px 4px),
       radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6), transparent 70%);
-    transform-origin: left center;
+    transform-origin: center center;
     backface-visibility:hidden;
     overflow:hidden;
     display:flex; flex-direction:column;
     padding:22px 22px 40px;
-    transform-style:preserve-3d;
-    will-change: transform, filter;
+
+    /* animação — só transform e opacity, nada de filter */
+    will-change: transform, opacity;
+    transition:
+      transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1),
+      opacity   320ms cubic-bezier(0.4, 0, 0.2, 1);
   }
+
+  /* estados das páginas */
+  .page.is-active {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+    z-index: 3;
+  }
+  .page.is-next {
+    transform: translate3d(60%, 0, 0) scale(0.94);
+    opacity: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .page.is-prev {
+    transform: translate3d(-60%, 0, 0) scale(0.94);
+    opacity: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* durante o arraste: sem transition, segue o dedo */
+  .page.dragging {
+    transition: none;
+  }
+
   .page::after {
     content:''; position:absolute; inset:0;
     background:linear-gradient(90deg, rgba(90,60,30,0.18), transparent 8%);
     pointer-events:none;
     border-radius:6px;
   }
-
-  .page-shade {
-    position:absolute; inset:0;
-    pointer-events:none;
-    opacity:0;
-    border-radius:6px;
-    z-index:2;
-  }
-  .page-shade.next { background:linear-gradient(90deg, transparent 55%, rgba(30,16,6,0.8)); }
-  .page-shade.prev { background:linear-gradient(270deg, transparent 55%, rgba(30,16,6,0.8)); }
 
   .page-number {
     position:absolute; bottom:12px; left:0; right:0;
@@ -150,7 +173,7 @@
     z-index: 1;
   }
 
-  /* ---- PÁGINA FINAL (mesmo estilo das fotos) ---- */
+  /* ---- PÁGINA FINAL ---- */
   .end-page {
     padding: 22px 22px 40px;
     justify-content: center;
@@ -265,6 +288,10 @@
     .end-message { font-size: 15px; }
     .end-title { font-size: 22px; }
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    .page { transition-duration: 1ms !important; }
+  }
 </style>
 </head>
 <body>
@@ -295,11 +322,12 @@ let pages = [];
 let current = 0;
 let animating = false;
 
-// ---------- Descobrir fotos ----------
+/* ============================================================
+   DESCOBERTA DE FOTOS
+   ============================================================ */
 async function discoverPhotos() {
   console.log('🔍 Procurando fotos...');
 
-  // 1) fotos/manifest.json
   try {
     const url = MANIFEST_URL + '?t=' + Date.now();
     const r = await fetch(url);
@@ -310,7 +338,6 @@ async function discoverPhotos() {
     }
   } catch(e) { console.error('Erro manifest:', e); }
 
-  // 2) fotos.json na raiz
   try {
     const r = await fetch('fotos.json?t=' + Date.now());
     if (r.ok) {
@@ -320,7 +347,6 @@ async function discoverPhotos() {
     }
   } catch(e) {}
 
-  // 3) GitHub API (fallback)
   try {
     const host = location.hostname;
     const parts = location.pathname.split('/').filter(Boolean);
@@ -343,7 +369,6 @@ async function discoverPhotos() {
   return [];
 }
 
-// Aceita ["a.jpg"] ou [{file, caption}] — ignora capa.*
 function normalizeList(list) {
   if (!Array.isArray(list)) return [];
   return list.map(item => {
@@ -363,20 +388,19 @@ function normalizeList(list) {
 function buildPages(fileList) {
   const pgs = [{ type:'cover' }];
   for (let i = 0; i < fileList.length; i++) {
-    pgs.push({ type:'photo', items:[fileList[i]] });  // 1 foto por página
+    pgs.push({ type:'photo', items:[fileList[i]] });
   }
   if (fileList.length > 0) pgs.push({ type:'end' });
   return pgs;
 }
 
-// ---------- Render ----------
+/* ============================================================
+   RENDER
+   ============================================================ */
 function renderPage(page, index) {
   const el = document.createElement('div');
   el.className = 'page';
   el.dataset.index = index;
-
-  const shade = document.createElement('div');
-  shade.className = 'page-shade';
 
   if (page.type === 'cover') {
     el.classList.add('cover');
@@ -446,10 +470,12 @@ function renderPage(page, index) {
     pn.textContent = `— ${index} —`;
     el.appendChild(pn);
   }
-  el.appendChild(shade);
   return el;
 }
 
+/* ============================================================
+   PRELOAD
+   ============================================================ */
 const preloadCache = new Set();
 function preloadPage(index) {
   const p = pages[index];
@@ -461,15 +487,50 @@ function preloadPage(index) {
     img.src = PHOTOS_DIR + encodeURIComponent(item.file);
   });
 }
+function preloadAround() {
+  preloadPage(current + 1);
+  preloadPage(current + 2);
+  preloadPage(current - 1);
+}
 
-function showPage(index) {
+/* ============================================================
+   JANELA DE 3 PÁGINAS (ant / atual / próx) — DOM persistente
+   ============================================================ */
+function mountWindow() {
   book.innerHTML = '';
-  const el = renderPage(pages[index], index);
-  book.appendChild(el);
-  current = index;
-  updateNav();
-  preloadPage(index + 1);
-  preloadPage(index - 1);
+  const order = [current - 1, current, current + 1];
+  order.forEach(i => {
+    if (i < 0 || i >= pages.length) return;
+    const el = renderPage(pages[i], i);
+    if (i === current) el.classList.add('is-active');
+    else if (i < current) el.classList.add('is-prev');
+    else el.classList.add('is-next');
+    book.appendChild(el);
+  });
+}
+
+function refreshWindow() {
+  // remove páginas fora da janela
+  [...book.children].forEach(el => {
+    const i = +el.dataset.index;
+    if (i < current - 1 || i > current + 1) el.remove();
+  });
+  // adiciona as que faltam
+  [current - 1, current, current + 1].forEach(i => {
+    if (i < 0 || i >= pages.length) return;
+    if (!book.querySelector(`[data-index="${i}"]`)) {
+      const el = renderPage(pages[i], i);
+      el.classList.add(i < current ? 'is-prev' : i > current ? 'is-next' : 'is-active');
+      book.appendChild(el);
+    }
+  });
+  // ajusta classes
+  [...book.children].forEach(el => {
+    const i = +el.dataset.index;
+    el.classList.toggle('is-active', i === current);
+    el.classList.toggle('is-prev',   i <  current);
+    el.classList.toggle('is-next',   i >  current);
+  });
 }
 
 function updateNav() {
@@ -477,152 +538,124 @@ function updateNav() {
   nextBtn.disabled = current >= pages.length - 1;
 }
 
-// ---------- Navegação: arraste real + física de dobra ----------
-function easeOutCubic(x) { return 1 - Math.pow(1 - x, 3); }
-function easeInOutCubic(x) { return x < 0.5 ? 4*x*x*x : 1 - Math.pow(-2*x+2, 3)/2; }
-
-// Aplica o ângulo/sombra/sombra-projetada de acordo com o progresso t (0..1)
-function applyTurnVisual(el, direction, t) {
-  t = Math.min(Math.max(t, 0), 1);
-  const angle = direction > 0 ? -180 * t : 180 * t;
-  el.style.transformOrigin = direction > 0 ? 'left center' : 'right center';
-  el.style.transform = `rotateY(${angle}deg)`;
-
-  const darkness = Math.sin(t * Math.PI); // pico no meio do giro
-  const shade = el.querySelector('.page-shade');
-  if (shade) {
-    shade.className = 'page-shade ' + (direction > 0 ? 'next' : 'prev');
-    shade.style.opacity = (darkness * 0.7).toFixed(3);
-  }
-  const lift = darkness * 22;
-  const dx = direction > 0 ? -lift : lift;
-  el.style.filter = `drop-shadow(${dx}px 12px ${16 + lift}px rgba(0,0,0,${0.3 + darkness*0.3}))`;
-}
-
-function resetTurnVisual(el) {
-  el.style.transform = '';
-  el.style.filter = '';
-  el.style.transformOrigin = '';
-  const shade = el.querySelector('.page-shade');
-  if (shade) shade.style.opacity = 0;
-}
-
-// Animação programática (botões, teclado, swipe) do início ao fim
-function turn(direction) {
-  if (animating || drag) return;
+/* ============================================================
+   NAVEGAÇÃO PROGRAMÁTICA (botões, teclado, swipe commit)
+   ============================================================ */
+function go(direction) {
+  if (animating) return;
   const target = current + direction;
   if (target < 0 || target >= pages.length) return;
   animating = true;
-
-  const topEl = book.querySelector('.page');
-  topEl.style.zIndex = 5;
-  const bottomEl = renderPage(pages[target], target);
-  bottomEl.style.zIndex = 1;
-  book.insertBefore(bottomEl, topEl);
-
-  const dur = 520;
-  const startTime = performance.now();
-  function step(now) {
-    const p = Math.min((now - startTime) / dur, 1);
-    applyTurnVisual(topEl, direction, easeInOutCubic(p));
-    if (p < 1) {
-      requestAnimationFrame(step);
-    } else {
-      book.innerHTML = '';
-      book.appendChild(bottomEl);
-      current = target;
-      updateNav();
-      animating = false;
-      preloadPage(current + 1);
-      preloadPage(current - 1);
-    }
-  }
-  requestAnimationFrame(step);
+  current = target;
+  refreshWindow();          // troca de classes → CSS transition anima
+  updateNav();
+  setTimeout(() => {
+    animating = false;
+    preloadAround();
+  }, 440);
 }
 
-// Arraste em tempo real (mouse/touch via Pointer Events)
-let drag = null;
+prevBtn.addEventListener('click', () => go(-1));
+nextBtn.addEventListener('click', () => go(1));
 
-function dragStart(clientX) {
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') go(1);
+  if (e.key === 'ArrowLeft')  go(-1);
+});
+
+/* ============================================================
+   DRAG EM TEMPO REAL (segue o dedo, sem transition)
+   ============================================================ */
+let dragState = null;
+
+function dragStart(x) {
   if (animating) return;
-  drag = { startX: clientX, width: book.clientWidth, direction: null, t: 0 };
+  dragState = { startX: x, dx: 0, dir: 0, w: book.clientWidth };
   book.classList.add('grabbing');
 }
 
-function dragMove(clientX) {
-  if (!drag) return;
-  const dx = clientX - drag.startX;
+function dragMove(x) {
+  if (!dragState) return;
+  const dx = x - dragState.startX;
+  dragState.dx = dx;
 
-  if (drag.direction === null) {
-    if (Math.abs(dx) < 8) return;
+  if (!dragState.dir) {
+    if (Math.abs(dx) < 10) return;
     const dir = dx < 0 ? 1 : -1;
     const target = current + dir;
-    if (target < 0 || target >= pages.length) { drag.direction = 0; return; }
-    drag.direction = dir;
-    drag.target = target;
-    drag.topEl = book.querySelector('.page');
-    drag.topEl.style.zIndex = 5;
-    drag.bottomEl = renderPage(pages[target], target);
-    drag.bottomEl.style.zIndex = 1;
-    book.insertBefore(drag.bottomEl, drag.topEl);
+    if (target < 0 || target >= pages.length) return;
+    dragState.dir = dir;
+    // garante que a página-alvo está montada
+    refreshWindow();
+    const active   = book.querySelector('.is-active');
+    const incoming = book.querySelector(dir > 0 ? '.is-next' : '.is-prev');
+    active?.classList.add('dragging');
+    incoming?.classList.add('dragging');
   }
-  if (!drag.direction) return;
+  if (!dragState.dir) return;
 
-  drag.t = Math.min(Math.abs(dx) / (drag.width * 0.8), 1);
-  applyTurnVisual(drag.topEl, drag.direction, drag.t);
+  const progress = Math.min(Math.abs(dx) / (dragState.w * 0.9), 1);
+  const dir = dragState.dir;
+  const active   = book.querySelector('.is-active');
+  const incoming = book.querySelector(dir > 0 ? '.is-next' : '.is-prev');
+  if (!active || !incoming) return;
+
+  const activeX     = -dir * progress * 60;       // % — sai
+  const activeScale = 1 - progress * 0.06;
+  const incomingX   = dir * (60 - progress * 60); // % — entra
+  const incomingScale = 0.94 + progress * 0.06;
+
+  active.style.transform   = `translate3d(${activeX}%, 0, 0) scale(${activeScale})`;
+  active.style.opacity     = String(1 - progress);
+  incoming.style.transform = `translate3d(${incomingX}%, 0, 0) scale(${incomingScale})`;
+  incoming.style.opacity   = String(progress);
 }
 
 function dragEnd() {
   book.classList.remove('grabbing');
-  if (!drag || !drag.direction) { drag = null; return; }
+  if (!dragState) return;
 
-  const { topEl, bottomEl, direction, target, t } = drag;
-  const complete = t > 0.35;
-  animating = true;
-  drag = null;
+  const { dir, dx, w } = dragState;
+  const progress = Math.min(Math.abs(dx) / (w * 0.9), 1);
+  const commit = progress > 0.3 || Math.abs(dx) > w * 0.25;
 
-  const startT = t;
-  const endT = complete ? 1 : 0;
-  const dur = 240;
-  const startTime = performance.now();
-  function step(now) {
-    const p = Math.min((now - startTime) / dur, 1);
-    const eased = startT + (endT - startT) * easeOutCubic(p);
-    applyTurnVisual(topEl, direction, eased);
-    if (p < 1) {
-      requestAnimationFrame(step);
-    } else {
-      if (complete) {
-        book.innerHTML = '';
-        book.appendChild(bottomEl);
-        current = target;
-      } else {
-        bottomEl.remove();
-        resetTurnVisual(topEl);
-      }
-      updateNav();
+  // limpa estilos inline pra CSS transition assumir
+  [...book.children].forEach(el => {
+    el.classList.remove('dragging');
+    el.style.transform = '';
+    el.style.opacity = '';
+  });
+
+  if (!dir) { dragState = null; return; }
+
+  const target = current + dir;
+  if (commit) {
+    animating = true;
+    current = target;
+    refreshWindow();
+    updateNav();
+    setTimeout(() => {
       animating = false;
-      preloadPage(current + 1);
-      preloadPage(current - 1);
-    }
+      preloadAround();
+    }, 440);
+  } else {
+    // volta ao estado original — CSS anima de volta
+    refreshWindow();
   }
-  requestAnimationFrame(step);
+  dragState = null;
 }
 
-prevBtn.addEventListener('click', () => turn(-1));
-nextBtn.addEventListener('click', () => turn(1));
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'ArrowRight') turn(1);
-  if (e.key === 'ArrowLeft') turn(-1);
+book.addEventListener('pointerdown', e => {
+  if (e.target.closest('.nav')) return;
+  dragStart(e.clientX);
 });
-
-book.addEventListener('pointerdown', e => dragStart(e.clientX));
 book.addEventListener('pointermove', e => dragMove(e.clientX));
 window.addEventListener('pointerup', dragEnd);
 window.addEventListener('pointercancel', dragEnd);
 
-// ---------- Init ----------
+/* ============================================================
+   INIT
+   ============================================================ */
 async function init() {
   const files = await discoverPhotos();
   photos = files;
@@ -633,14 +666,19 @@ async function init() {
   }
   pages = buildPages(photos);
   loading.style.display = 'none';
-  showPage(0);
+  current = 0;
+  mountWindow();
+  updateNav();
+  preloadAround();
 
   setTimeout(() => hint.classList.add('hide'), 4000);
 }
 
 init();
 
-// ---------- Service Worker ----------
+/* ============================================================
+   SERVICE WORKER
+   ============================================================ */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(()=>{});
