@@ -430,6 +430,7 @@ caption = item.caption || item.file.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' 
 } else {
 continue;
 }
+if (!/\.(jpe?g|png|webp|gif|bmp)$/i.test(file)) continue;
 if (/^capa\.(jpe?g|png|webp|gif|bmp)$/i.test(file)) continue;
 if (seen.has(file)) continue;
 seen.add(file);
@@ -670,6 +671,9 @@ await new Promise(resolve => setTimeout(resolve, 115));
 
 animating = false;
 restartBtn.classList.remove('restarting');
+
+hint.classList.remove('hide');
+setTimeout(() => hint.classList.add('hide'), 2000);
 });
 
 document.addEventListener('keydown', e => {
@@ -682,25 +686,35 @@ DRAG / SWIPE — A PÁGINA VIRA CONFORME O DEDO
 ============================================================ */
 let dragState = null;
 
-function dragStart(x, pointerId) {
+function dragStart(x, y, pointerId) {
 if (animating) return;
 
 dragState = {
 startX: x,
+startY: y,
 dx: 0,
+dy: 0,
 dir: 0,
 w: book.clientWidth,
-pointerId
+pointerId,
+active: null
 };
 
 book.classList.add('grabbing');
 }
 
-function dragMove(x) {
+function dragMove(x, y) {
 if (!dragState) return;
 
 const dx = x - dragState.startX;
+const dy = y - dragState.startY;
 dragState.dx = dx;
+dragState.dy = dy;
+
+if (!dragState.dir && Math.abs(dy) > Math.abs(dx)) {
+cancelDrag();
+return;
+}
 
 if (!dragState.dir) {
 if (Math.abs(dx) < 10) return;
@@ -718,6 +732,9 @@ dragState.dir = dir;
 const active = book.querySelector('.is-active');
 const incoming = book.querySelector(dir > 0 ? '.is-next' : '.is-prev');
 
+dragState.active = active || null;
+dragState.incoming = incoming || null;
+
 active?.classList.add('dragging');
 incoming?.classList.add('dragging');
 }
@@ -729,7 +746,7 @@ Math.abs(dx) / (dragState.w * 0.9),
 1
 );
 
-const active = book.querySelector('.is-active');
+const active = dragState.active;
 if (!active) return;
 
 const angle = dragState.dir > 0
@@ -744,11 +761,11 @@ book.classList.remove('grabbing');
 
 if (!dragState) return;
 
-const { dir, dx, w } = dragState;
+const { dir, dx, w, active: dragActive, incoming: dragIncoming } = dragState;
 const progress = Math.min(Math.abs(dx) / (w * 0.9), 1);
 const commit = dir !== 0 && (progress > 0.28 || Math.abs(dx) > w * 0.22);
 
-const active = book.querySelector('.is-active');
+const active = dragActive;
 
 if (!dir || !active) {
 cancelDrag();
@@ -776,7 +793,7 @@ dragState = null;
 active.classList.remove('dragging');
 active.style.transform = '';
 
-const incoming = book.querySelector(dir > 0 ? '.is-next' : '.is-prev');
+const incoming = dragIncoming;
 incoming?.classList.remove('dragging');
 
 dragState = null;
@@ -788,12 +805,12 @@ if (e.target.closest('.nav')) return;
 if (dragState || animating) return;
 
 try { book.setPointerCapture(e.pointerId); } catch(_) {}
-dragStart(e.clientX, e.pointerId);
+dragStart(e.clientX, e.clientY, e.pointerId);
 });
 
 book.addEventListener('pointermove', e => {
 if (!dragState || e.pointerId !== dragState.pointerId) return;
-dragMove(e.clientX);
+dragMove(e.clientX, e.clientY);
 });
 
 book.addEventListener('pointerup', e => {
@@ -805,6 +822,11 @@ dragEnd();
 
 book.addEventListener('pointercancel', e => {
 if (!dragState || e.pointerId !== dragState.pointerId) return;
+dragEnd();
+});
+window.addEventListener('pointerup', e => {
+if (!dragState || e.pointerId !== dragState.pointerId) return;
+try { book.releasePointerCapture(e.pointerId); } catch(_) {}
 dragEnd();
 });
 
