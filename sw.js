@@ -7,7 +7,9 @@ const CORE = [
   './',
   './index.html',
   './manifest.json',
-  './fotos/familia.mp3'   // precache do áudio
+  './fotos/manifest.json',
+  './fotos/familia.mp3',
+  './fotos/capa.webp'
 ];
 
 self.addEventListener('install', e => {
