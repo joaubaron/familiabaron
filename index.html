@@ -341,7 +341,7 @@ background: transparent;
 
 <div id="book"></div>
 
-<button id="music-toggle" aria-label="Ligar/desligar música" aria-pressed="false">❚❚</button>
+<button id="music-toggle" aria-label="Ligar/desligar música" aria-pressed="false">▶&#xFE0E;</button>
 
 <audio id="bgm" src="fotos/familia.mp3" preload="auto"></audio>
 
@@ -392,7 +392,7 @@ function updateMusicIcon() {
 // Ícone reflete o estado REAL do áudio, não a intenção
 const playing = !bgm.paused && !bgm.ended;
 // ▶ = tocando | ⏸ = pausado
-musicToggle.textContent = playing ? '\u25B6\uFE0E' : '\u275A\u275A';
+musicToggle.textContent = playing ? '\u2759\u2759' : '\u25B6\uFE0E';
 musicToggle.setAttribute('aria-pressed', playing ? 'true' : 'false');
 }
 
