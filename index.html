@@ -87,18 +87,6 @@ z-index:4;
 transition: none;
 }
 
-/* Pequena animação ao recomeçar o álbum */
-@keyframes restartAlbum {
-0%   { transform: rotateY(0deg) scale(1); }
-45%  { transform: rotateY(-18deg) scale(0.98); }
-100% { transform: rotateY(0deg) scale(1); }
-}
-
-.page.restart-anim {
-animation: restartAlbum 360ms ease-in-out;
-z-index:5;
-}
-
 .page::after {
 content:''; position:absolute; inset:0;
 background:linear-gradient(90deg, rgba(90,60,30,0.18), transparent 8%);
@@ -192,6 +180,20 @@ background-repeat: no-repeat;
 background-position: center;
 background-color: #2a1a0e;
 z-index: 1;
+}
+
+.cover-img.cover-img-fallback {
+background-image: none;
+}
+.cover-img.cover-img-fallback::before {
+content: '📷';
+position: absolute;
+inset: 0;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 64px;
+opacity: 0.35;
 }
 
 /* ---- PÁGINA FINAL ---- */
@@ -459,6 +461,12 @@ el.dataset.index = index;
 if (page.type === 'cover') {
 el.classList.add('cover');
 el.innerHTML = `<div class="cover-img"></div>`;
+const testImg = new Image();
+testImg.onerror = () => {
+const coverEl = el.querySelector('.cover-img');
+if (coverEl) coverEl.classList.add('cover-img-fallback');
+};
+testImg.src = PHOTOS_DIR + 'capa.webp';
 } else if (page.type === 'end') {
 el.classList.add('end-page');
 el.innerHTML = `
@@ -571,27 +579,6 @@ if (i === current) el.classList.add('is-active');
 else if (i < current) el.classList.add('is-prev');
 else el.classList.add('is-next');
 book.appendChild(el);
-});
-}
-
-function refreshWindow() {
-[...book.children].forEach(el => {
-const i = +el.dataset.index;
-if (i < current - 1 || i > current + 1) el.remove();
-});
-[current - 1, current, current + 1].forEach(i => {
-if (i < 0 || i >= pages.length) return;
-if (!book.querySelector(`[data-index="${i}"]`)) {
-const el = renderPage(pages[i], i);
-el.classList.add(i < current ? 'is-prev' : i > current ? 'is-next' : 'is-active');
-book.appendChild(el);
-}
-});
-[...book.children].forEach(el => {
-const i = +el.dataset.index;
-el.classList.toggle('is-active', i === current);
-el.classList.toggle('is-prev',   i <  current);
-el.classList.toggle('is-next',   i >  current);
 });
 }
 
