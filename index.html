@@ -789,7 +789,11 @@ active.style.transform = `rotateY(${angle}deg)`;
 function dragEnd() {
 book.classList.remove('grabbing');
 
-if (!dragState) return;
+if (!dragState || dragState.ended) return;
+// marca o gesto como processado: evita que o pointerup, ao
+// borbulhar até o window (segundo listener abaixo), reprocesse
+// o mesmo arraste e dispare a virada/mountWindow em duplicidade
+dragState.ended = true;
 
 const { dir, dx, w, active: dragActive, incoming: dragIncoming, other: dragOther } = dragState;
 const progress = Math.min(Math.abs(dx) / (w * 0.9), 1);
