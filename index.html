@@ -337,6 +337,14 @@ transform: scale(0.58);
 .end-title { font-size: 22px; }
 }
 
+@media (max-height: 480px) and (orientation: landscape) {
+.page { height: 92vh; padding: 10px 16px 30px; }
+.photo img { max-height: 60vh; }
+.photo .caption { margin: 4px 0 6px; font-size: 11px; }
+.end-message { font-size: 13px; margin-bottom: 12px; }
+.end-ornament { font-size: 28px; margin-bottom: 10px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
 .page { transition-duration: 1ms !important; }
 #zoom-overlay { transition-duration: 1ms !important; }
