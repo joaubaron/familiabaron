@@ -319,6 +319,14 @@ opacity: 0.8;
 background: transparent;
 }
 
+#music-toggle.is-pause {
+transform: scale(0.82);
+}
+
+#music-toggle.is-pause:active {
+transform: scale(0.74);
+}
+
 @media (max-width:480px) {
 .page { width:94vw; height:78vh; padding:16px 16px 36px; }
 .photo { padding:8px 8px 0; }
@@ -393,6 +401,7 @@ function updateMusicIcon() {
 const playing = !bgm.paused && !bgm.ended;
 // ▶ = tocando | ⏸ = pausado
 musicToggle.textContent = playing ? '\u2759\u2759' : '\u25B6\uFE0E';
+musicToggle.classList.toggle('is-pause', playing);
 musicToggle.setAttribute('aria-pressed', playing ? 'true' : 'false');
 }
 
