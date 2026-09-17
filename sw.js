@@ -1,13 +1,15 @@
 // Service Worker
 // A versão é atualizada automaticamente pelo deploy.yml a cada push no GitHub Pages.
-const CACHE_VERSION = '17.09.2026-1523';
+const CACHE_VERSION = '17.09.2026-1533';
 const CACHE_NAME = `album-baron-${CACHE_VERSION}`;
 
 const CORE = [
   './',
   './index.html',
   './manifest.json',
-  './fotos/familia.mp3'   // precache do áudio
+  './fotos/manifest.json',
+  './fotos/familia.mp3',
+  './fotos/capa.webp'
 ];
 
 self.addEventListener('install', e => {
