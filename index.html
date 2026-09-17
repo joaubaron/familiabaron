@@ -294,28 +294,6 @@ color:#e0c8a0; font-style:italic; z-index:200;
 background:#2b1810;
 }
 
-/* ---- INDICADOR DE PULL-TO-REFRESH ---- */
-#pull-indicator {
-position: absolute;
-top: 10px; left: 50%;
-transform: translateX(-50%) translateY(-60px);
-background: rgba(245,236,216,0.95);
-color: #5c3a21;
-padding: 8px 16px;
-border-radius: 20px;
-font-size: 13px; font-style: italic;
-box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-transition: transform 0.2s ease, opacity 0.2s ease;
-opacity: 0;
-pointer-events: none;
-z-index: 150;
-white-space: nowrap;
-}
-#pull-indicator.visible {
-transform: translateX(-50%) translateY(0);
-opacity: 1;
-}
-
 @media (max-width:480px) {
 .page { width:94vw; height:78vh; padding:16px 16px 36px; }
 .photo { padding:8px 8px 0; }
@@ -346,8 +324,6 @@ opacity: 1;
 <button id="next" aria-label="Próxima página">›</button>
 </div>
 
-<div id="pull-indicator">↓ Continue puxando…</div>
-
 <div id="zoom-overlay" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
 <img alt="">
 </div>
@@ -364,7 +340,6 @@ const nextBtn = document.getElementById('next');
 const restartBtn = document.getElementById('restart');
 const zoomOverlay = document.getElementById('zoom-overlay');
 const zoomImg = zoomOverlay.querySelector('img');
-const pullIndicator = document.getElementById('pull-indicator');
 
 let photos = [];
 let pages = [];
@@ -628,6 +603,20 @@ restartBtn.disabled = current <= 0;
 
 /* ============================================================
 NAVEGAÇÃO — EFEITO DE PÁGINA VIRANDO
+============================================================
+FIX: is-prev e is-next ficam empatados em z-index (2) e são
+inseridos no DOM sempre na mesma ordem (prev, active, next).
+Isso faz o "next" sempre pintar por cima do "prev" em caso de
+empate — o que é invisível ao avançar (por acaso já é o certo),
+mas causa um flash da foto errada ao voltar, pois no meio do
+giro (quando o verso da página ativa fica transparente) quem
+aparece por baixo é o next, não o prev.
+Corrigido elevando o z-index da página "certa" (incoming) e
+baixando o da "errada" (other) assim que a direção é definida —
+tanto no clique quanto no arraste — além de fixar o
+transform-origin correto (esquerda para avançar, direita para
+voltar) antes de iniciar qualquer rotação, evitando também o
+salto visual de pivô durante o swipe.
 ============================================================ */
 function cancelDrag() {
 if (!dragState) return;
@@ -636,6 +625,8 @@ book.classList.remove('grabbing');
 [...book.children].forEach(el => {
 el.classList.remove('dragging', 'turn-forward', 'turn-back');
 el.style.transform = '';
+el.style.transformOrigin = '';
+el.style.zIndex = '';
 });
 dragState = null;
 }
@@ -663,10 +654,18 @@ if (target < 0 || target >= pages.length) return;
 
 const active = book.querySelector('.is-active');
 const incoming = book.querySelector(direction > 0 ? '.is-next' : '.is-prev');
+const other = book.querySelector(direction > 0 ? '.is-prev' : '.is-next');
 
 if (!active || !incoming) return;
 
 animating = true;
+
+// garante que a página correta fique visível assim que o
+// verso da página ativa desaparecer (backface-visibility)
+if (other) other.style.zIndex = '1';
+incoming.style.zIndex = '3';
+active.style.transformOrigin = direction > 0 ? 'left center' : 'right center';
+
 active.classList.add(direction > 0 ? 'turn-forward' : 'turn-back');
 
 waitTransitionEnd(active, 700, () => {
@@ -719,6 +718,7 @@ w: book.clientWidth,
 pointerId,
 active: null,
 incoming: null,
+other: null,
 captured: false
 };
 
@@ -753,12 +753,20 @@ dragState.dir = dir;
 
 const active = book.querySelector('.is-active');
 const incoming = book.querySelector(dir > 0 ? '.is-next' : '.is-prev');
+const other = book.querySelector(dir > 0 ? '.is-prev' : '.is-next');
 
 dragState.active = active || null;
 dragState.incoming = incoming || null;
+dragState.other = other || null;
 
 active?.classList.add('dragging');
 incoming?.classList.add('dragging');
+
+// mesma correção do go(): prioridade de empilhamento + pivô
+// certo desde o primeiro frame do arraste
+if (other) other.style.zIndex = '1';
+if (incoming) incoming.style.zIndex = '3';
+if (active) active.style.transformOrigin = dir > 0 ? 'left center' : 'right center';
 }
 
 if (!dragState.dir) return;
@@ -783,7 +791,7 @@ book.classList.remove('grabbing');
 
 if (!dragState) return;
 
-const { dir, dx, w, active: dragActive, incoming: dragIncoming } = dragState;
+const { dir, dx, w, active: dragActive, incoming: dragIncoming, other: dragOther } = dragState;
 const progress = Math.min(Math.abs(dx) / (w * 0.9), 1);
 const commit = dir !== 0 && (progress > 0.28 || Math.abs(dx) > w * 0.22);
 
@@ -814,98 +822,56 @@ dragState = null;
 } else {
 active.classList.remove('dragging');
 active.style.transform = '';
+active.style.transformOrigin = '';
 
 const incoming = dragIncoming;
 incoming?.classList.remove('dragging');
+
+if (dragOther) dragOther.style.zIndex = '';
+if (incoming) incoming.style.zIndex = '';
 
 dragState = null;
 }
 }
 
 /* ============================================================
-PULL-TO-REFRESH (substitui o nativo, funciona no PWA)
+GESTOS DE TOQUE
+FIX: removido o "pull-to-refresh" que dava location.reload()
+ao puxar o dedo para baixo — mesmo princípio do app
+Precificação, que não intercepta esse gesto para recarregar
+o app inteiro. Só o folhear horizontal (drag) permanece.
 ============================================================ */
-let pull = null;
-
-function updatePullIndicator() {
-  if (!pull || !pull.active) {
-    pullIndicator.classList.remove('visible');
-    return;
-  }
-  pullIndicator.classList.add('visible');
-  pullIndicator.textContent = pull.dy > 100
-    ? '↑ Solte para atualizar'
-    : '↓ Continue puxando…';
-}
-
 book.addEventListener('pointerdown', e => {
-  if (e.target.closest('.nav')) return;
-  if (dragState || animating) return;
-
-  const rect = book.getBoundingClientRect();
-  const startY = e.clientY;
-  const fromTop = (startY - rect.top) < rect.height * 0.3;
-
-  pull = fromTop
-    ? { startX: e.clientX, startY, dy: 0, active: false, id: e.pointerId }
-    : null;
-
-  dragStart(e.clientX, e.clientY, e.pointerId);
+if (e.target.closest('.nav')) return;
+dragStart(e.clientX, e.clientY, e.pointerId);
 });
 
 book.addEventListener('pointermove', e => {
-  if (pull && e.pointerId === pull.id) {
-    pull.dy = e.clientY - pull.startY;
-    const dx = Math.abs(e.clientX - pull.startX);
+if (!dragState || e.pointerId !== dragState.pointerId) return;
 
-    if (!pull.active && dx > Math.abs(pull.dy) && dx > 8) {
-      pull = null;
-      updatePullIndicator();
-    } else if (pull.dy > 8 && Math.abs(pull.dy) > dx) {
-      if (dragState) cancelDrag();
-      pull.active = true;
-      updatePullIndicator();
-    }
-  }
+if (!dragState.captured && Math.abs(e.clientX - dragState.startX) > 10) {
+try { book.setPointerCapture(e.pointerId); } catch(_) {}
+dragState.captured = true;
+}
 
-  if (!dragState || e.pointerId !== dragState.pointerId) return;
-
-  if (!dragState.captured && Math.abs(e.clientX - dragState.startX) > 10) {
-    try { book.setPointerCapture(e.pointerId); } catch(_) {}
-    dragState.captured = true;
-  }
-
-  dragMove(e.clientX, e.clientY);
+dragMove(e.clientX, e.clientY);
 });
 
 book.addEventListener('pointerup', e => {
-  if (pull && e.pointerId === pull.id) {
-    if (pull.active && pull.dy > 100) {
-      pullIndicator.classList.remove('visible');
-      pull = null;
-      location.reload();
-      return;
-    }
-    pull = null;
-    updatePullIndicator();
-  }
-
-  if (!dragState || e.pointerId !== dragState.pointerId) return;
-  try { book.releasePointerCapture(e.pointerId); } catch(_) {}
-  dragEnd();
+if (!dragState || e.pointerId !== dragState.pointerId) return;
+try { book.releasePointerCapture(e.pointerId); } catch(_) {}
+dragEnd();
 });
 
 book.addEventListener('pointercancel', e => {
-  pull = null;
-  updatePullIndicator();
-  if (!dragState || e.pointerId !== dragState.pointerId) return;
-  dragEnd();
+if (!dragState || e.pointerId !== dragState.pointerId) return;
+dragEnd();
 });
 
 window.addEventListener('pointerup', e => {
-  if (!dragState || e.pointerId !== dragState.pointerId) return;
-  try { book.releasePointerCapture(e.pointerId); } catch(_) {}
-  dragEnd();
+if (!dragState || e.pointerId !== dragState.pointerId) return;
+try { book.releasePointerCapture(e.pointerId); } catch(_) {}
+dragEnd();
 });
 
 /* ============================================================
