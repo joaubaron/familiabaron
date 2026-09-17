@@ -27,7 +27,6 @@ cursor: grab;
 touch-action: pan-y;
 overflow: hidden;
 perspective: 1600px;
-transform-style: preserve-3d;
 }
 #book.grabbing { cursor: grabbing; }
 
@@ -59,29 +58,27 @@ transition: transform 560ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .page.is-active {
-transform: rotateY(0deg) translateZ(0px);
+transform: rotateY(0deg);
 opacity:1;
 z-index:3;
 }
 
 .page.is-next,
 .page.is-prev {
-transform: rotateY(0deg) translateZ(-2px);
+transform: rotateY(0deg);
 opacity:1;
 z-index:2;
 pointer-events:none;
 }
 
-.page.turn-forward {
-transform-origin: left center;
-transform: rotateY(-180deg) translateZ(0px);
-z-index:4;
-}
-
-.page.turn-back {
-transform-origin: right center;
-transform: rotateY(180deg) translateZ(0px);
-z-index:4;
+/* A página que está sendo virada sai da pilha normal e vira uma
+camada isolada, sempre por cima de tudo. Como ela é a ÚNICA
+página com transform 3D em cada instante, o navegador nunca
+precisa comparar profundidade 3D entre duas páginas rotacionadas
+ao mesmo tempo — a origem do bug de "ficar atrás". */
+.page.flip-layer {
+z-index:999;
+pointer-events:none;
 }
 
 .page.dragging {
@@ -611,7 +608,11 @@ if (!dragState) return;
 book.classList.remove('grabbing');
 
 [...book.children].forEach(el => {
-el.classList.remove('dragging', 'turn-forward', 'turn-back');
+el.classList.remove('dragging');
+if (el.classList.contains('flip-layer')) {
+el.classList.remove('flip-layer');
+el.classList.add('is-active');
+}
 el.style.transform = '';
 el.style.transformOrigin = '';
 el.style.zIndex = '';
@@ -640,23 +641,31 @@ if (animating) return;
 const target = current + direction;
 if (target < 0 || target >= pages.length) return;
 
-const active = book.querySelector('.is-active');
+const flipping = book.querySelector('.is-active');
 const incoming = book.querySelector(direction > 0 ? '.is-next' : '.is-prev');
 const other = book.querySelector(direction > 0 ? '.is-prev' : '.is-next');
 
-if (!active || !incoming) return;
+if (!flipping || !incoming) return;
 
 animating = true;
 
-// garante que a página correta fique visível assim que o
-// verso da página ativa desaparecer (backface-visibility)
+// a página ativa deixa de ser "flat" e vira a camada que gira,
+// sempre por cima (z-index:999, ver CSS .flip-layer)
+flipping.classList.remove('is-active');
+flipping.classList.add('flip-layer');
+book.appendChild(flipping);
+flipping.style.transformOrigin = direction > 0 ? 'left center' : 'right center';
+
+// as duas páginas que ficam paradas nunca giram ao mesmo tempo,
+// então o z-index entre elas é 100% confiável
+incoming.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
-incoming.style.zIndex = '3';
-active.style.transformOrigin = direction > 0 ? 'left center' : 'right center';
 
-active.classList.add(direction > 0 ? 'turn-forward' : 'turn-back');
+// força o navegador a aplicar o estado inicial antes de animar
+void flipping.offsetWidth;
+flipping.style.transform = `rotateY(${direction > 0 ? -180 : 180}deg)`;
 
-waitTransitionEnd(active, 700, () => {
+waitTransitionEnd(flipping, 700, () => {
 current = target;
 mountWindow();
 updateNav();
@@ -747,14 +756,18 @@ dragState.active = active || null;
 dragState.incoming = incoming || null;
 dragState.other = other || null;
 
-active?.classList.add('dragging');
-incoming?.classList.add('dragging');
+if (active) {
+active.classList.add('dragging');
+active.classList.remove('is-active');
+active.classList.add('flip-layer');
+book.appendChild(active);
+active.style.transformOrigin = dir > 0 ? 'left center' : 'right center';
+}
 
-// mesma correção do go(): prioridade de empilhamento + pivô
-// certo desde o primeiro frame do arraste
+// as duas páginas paradas nunca giram ao mesmo tempo entre si,
+// então o z-index entre elas é 100% confiável nos dois sentidos
+if (incoming) incoming.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
-if (incoming) incoming.style.zIndex = '3';
-if (active) active.style.transformOrigin = dir > 0 ? 'left center' : 'right center';
 }
 
 if (!dragState.dir) return;
@@ -771,7 +784,7 @@ const angle = dragState.dir > 0
 ? -180 * progress
 :  180 * progress;
 
-active.style.transform = `rotateY(${angle}deg) translateZ(0px)`;
+active.style.transform = `rotateY(${angle}deg)`;
 }
 
 function dragEnd() {
@@ -798,8 +811,7 @@ if (commit) {
 animating = true;
 
 active.classList.remove('dragging');
-active.classList.add(dir > 0 ? 'turn-forward' : 'turn-back');
-active.style.transform = '';
+active.style.transform = `rotateY(${dir > 0 ? -180 : 180}deg)`;
 
 const target = current + dir;
 
@@ -812,15 +824,14 @@ preloadAround();
 dragState = null;
 });
 } else {
-active.classList.remove('dragging');
+active.classList.remove('dragging', 'flip-layer');
+active.classList.add('is-active');
 active.style.transform = '';
 active.style.transformOrigin = '';
+active.style.zIndex = '';
 
-const incoming = dragIncoming;
-incoming?.classList.remove('dragging');
-
+if (dragIncoming) dragIncoming.style.zIndex = '';
 if (dragOther) dragOther.style.zIndex = '';
-if (incoming) incoming.style.zIndex = '';
 
 dragState = null;
 }
