@@ -1,8 +1,8 @@
 {
   "id": "/familiabaron/",
-  "name": "Álbum de Fotos Antigo",
-  "short_name": "Álbum",
-  "description": "Álbum de fotos estilo antigo com folheamento",
+  "name": "Álbum de Fotos de família",
+  "short_name": "Família",
+  "description": "Álbum de fotos de família com folheamento",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
