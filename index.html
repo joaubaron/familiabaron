@@ -294,6 +294,20 @@ color:#e0c8a0; font-style:italic; z-index:200;
 background:#2b1810;
 }
 
+/* ---- CONTROLE DE MÚSICA ---- */
+#music-toggle {
+position:absolute; top:12px; right:14px; z-index:100;
+background:rgba(245,236,216,0.9);
+border:none; border-radius:50%;
+width:40px; height:40px;
+font-size:17px; color:#5c3a21;
+box-shadow:0 4px 12px rgba(0,0,0,0.35);
+cursor:pointer;
+display:flex; align-items:center; justify-content:center;
+transition:transform 0.15s, background 0.2s;
+}
+#music-toggle:active { transform:scale(0.9); background:#e8d9bc; }
+
 @media (max-width:480px) {
 .page { width:94vw; height:78vh; padding:16px 16px 36px; }
 .photo { padding:8px 8px 0; }
@@ -315,6 +329,10 @@ background:#2b1810;
 <div id="loading">Abrindo o álbum…</div>
 
 <div id="book"></div>
+
+<button id="music-toggle" aria-label="Ligar/desligar música">🔈</button>
+
+<audio id="bgm" src="fotos/familia.mp3" loop preload="auto"></audio>
 
 <div class="hint" id="hint">Deslize ou toque nas setas para folhear</div>
 
@@ -345,6 +363,62 @@ let photos = [];
 let pages = [];
 let current = 0;
 let animating = false;
+
+/* ============================================================
+MÚSICA DE FUNDO
+============================================================
+Navegadores bloqueiam autoplay com som antes de qualquer
+interação do usuário. A estratégia:
+1. Tenta tocar assim que o álbum carrega (funciona em alguns
+   contextos, ex. PWA instalado / já visitado antes).
+2. Se for bloqueado, guarda a intenção e começa a tocar no
+   primeiro toque/clique em qualquer lugar da página.
+3. O estado de mudo é lembrado no localStorage (mesmo padrão
+   usado nos outros apps).
+============================================================ */
+const bgm = document.getElementById('bgm');
+const musicToggle = document.getElementById('music-toggle');
+const MUSIC_KEY = 'album-familia-musica-mutada';
+
+bgm.volume = 0.7;
+
+function isMuted() {
+return localStorage.getItem(MUSIC_KEY) === '1';
+}
+
+function updateMusicIcon() {
+musicToggle.textContent = isMuted() ? '🔇' : '🔈';
+}
+
+function tryPlayMusic() {
+if (isMuted()) return;
+const p = bgm.play();
+if (p && p.catch) {
+p.catch(() => {
+// bloqueado pelo navegador — aguarda a primeira interação
+document.addEventListener('pointerdown', startOnFirstInteraction, { once:true });
+});
+}
+}
+
+function startOnFirstInteraction() {
+if (isMuted()) return;
+bgm.play().catch(() => {});
+}
+
+musicToggle.addEventListener('click', () => {
+if (isMuted()) {
+localStorage.setItem(MUSIC_KEY, '0');
+bgm.play().catch(() => {});
+} else {
+localStorage.setItem(MUSIC_KEY, '1');
+bgm.pause();
+}
+updateMusicIcon();
+});
+
+updateMusicIcon();
+tryPlayMusic();
 
 /* ============================================================
 ZOOM OVERLAY
@@ -588,20 +662,6 @@ restartBtn.disabled = current <= 0;
 
 /* ============================================================
 NAVEGAÇÃO — EFEITO DE PÁGINA VIRANDO
-============================================================
-FIX: is-prev e is-next ficam empatados em z-index (2) e são
-inseridos no DOM sempre na mesma ordem (prev, active, next).
-Isso faz o "next" sempre pintar por cima do "prev" em caso de
-empate — o que é invisível ao avançar (por acaso já é o certo),
-mas causa um flash da foto errada ao voltar, pois no meio do
-giro (quando o verso da página ativa fica transparente) quem
-aparece por baixo é o next, não o prev.
-Corrigido elevando o z-index da página "certa" (incoming) e
-baixando o da "errada" (other) assim que a direção é definida —
-tanto no clique quanto no arraste — além de fixar o
-transform-origin correto (esquerda para avançar, direita para
-voltar) antes de iniciar qualquer rotação, evitando também o
-salto visual de pivô durante o swipe.
 ============================================================ */
 function cancelDrag() {
 if (!dragState) return;
@@ -649,19 +709,14 @@ if (!flipping || !incoming) return;
 
 animating = true;
 
-// a página ativa deixa de ser "flat" e vira a camada que gira,
-// sempre por cima (z-index:999, ver CSS .flip-layer)
 flipping.classList.remove('is-active');
 flipping.classList.add('flip-layer');
 book.appendChild(flipping);
 flipping.style.transformOrigin = direction > 0 ? 'left center' : 'right center';
 
-// as duas páginas que ficam paradas nunca giram ao mesmo tempo,
-// então o z-index entre elas é 100% confiável
 incoming.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
 
-// força o navegador a aplicar o estado inicial antes de animar
 void flipping.offsetWidth;
 flipping.style.transform = `rotateY(${direction > 0 ? -180 : 180}deg)`;
 
@@ -764,8 +819,6 @@ book.appendChild(active);
 active.style.transformOrigin = dir > 0 ? 'left center' : 'right center';
 }
 
-// as duas páginas paradas nunca giram ao mesmo tempo entre si,
-// então o z-index entre elas é 100% confiável nos dois sentidos
 if (incoming) incoming.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
 }
@@ -791,9 +844,6 @@ function dragEnd() {
 book.classList.remove('grabbing');
 
 if (!dragState || dragState.ended) return;
-// marca o gesto como processado: evita que o pointerup, ao
-// borbulhar até o window (segundo listener abaixo), reprocesse
-// o mesmo arraste e dispare a virada/mountWindow em duplicidade
 dragState.ended = true;
 
 const { dir, dx, w, active: dragActive, incoming: dragIncoming, other: dragOther } = dragState;
@@ -839,10 +889,6 @@ dragState = null;
 
 /* ============================================================
 GESTOS DE TOQUE
-FIX: removido o "pull-to-refresh" que dava location.reload()
-ao puxar o dedo para baixo — mesmo princípio do app
-Precificação, que não intercepta esse gesto para recarregar
-o app inteiro. Só o folhear horizontal (drag) permanece.
 ============================================================ */
 book.addEventListener('pointerdown', e => {
 if (e.target.closest('.nav')) return;
