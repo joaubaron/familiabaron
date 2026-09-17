@@ -4,6 +4,11 @@
 { "file": "amanda.webp",  "caption": "Amanda" },
 { "file": "dudualicemateus.webp",  "caption": "Dudu, Alice e Mateus" },
 { "file": "euclaraclaudia.webp", "caption": "Augusto, Clara e Cláudia" },
+{ "file": "irmaos.webp", "caption": "Irmãos juntos" },
+{ "file": "maepaidancando.webp", "caption": "Mãe e pai" },
+{ "file": "manoeldudumateus.webp", "caption": "Manoel com Dudu e Mateus" },
+{ "file": "mateusamanda.webp", "caption": "Mateue e Amanda" },
+{ "file": "victorpai.webp", "caption": "Victor com pai" },
 { "file": "guimarlon.webp", "caption": "Gilherme e Marlon" },
 { "file": "manoelalicemorgana.webp", "caption": "Manoel, Alice e Morgana" },
 { "file": "renatofamilia.webp", "caption": "Debora, Agnes, Alice, Renato e Victor" },
@@ -15,8 +20,9 @@
 { "file": "eumorgana.webp", "caption": "Morgana em 1985" },
 { "file": "debora3anos.webp", "caption": "Debora com 3 anos" },
 { "file": "eumarlon.webp", "caption": "Marlon com 1 ano" },
-{ "file": "paisemorgana.webp", "caption": "Pai, mãe com Morgana" },
+{ "file": "mateusvictor.webp", "caption": "Mateus e Victor" },
+{ "file": "paisemorgana.webp", "caption": "Pai e mãe com Morgana" },
 { "file": "eudebora.webp",  "caption": "Primeira comunhão da Débora" },
-{ "file": "euexercitomorgana.webp",  "caption": "Sergio, Morgana e Zani" },
+{ "file": "euexercitomorgana.webp",  "caption": "Sergio e Morgana no exército" },
 { "file": "paismorgananatal.webp", "caption": "Pais e Morgana no natal" }
 ]
