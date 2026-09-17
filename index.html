@@ -27,6 +27,7 @@ cursor: grab;
 touch-action: pan-y;
 overflow: hidden;
 perspective: 1600px;
+transform-style: preserve-3d;
 }
 #book.grabbing { cursor: grabbing; }
 
@@ -58,14 +59,14 @@ transition: transform 560ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .page.is-active {
-transform: rotateY(0deg);
+transform: rotateY(0deg) translateZ(0px);
 opacity:1;
 z-index:3;
 }
 
 .page.is-next,
 .page.is-prev {
-transform: rotateY(0deg);
+transform: rotateY(0deg) translateZ(-2px);
 opacity:1;
 z-index:2;
 pointer-events:none;
@@ -73,13 +74,13 @@ pointer-events:none;
 
 .page.turn-forward {
 transform-origin: left center;
-transform: rotateY(-180deg);
+transform: rotateY(-180deg) translateZ(0px);
 z-index:4;
 }
 
 .page.turn-back {
 transform-origin: right center;
-transform: rotateY(180deg);
+transform: rotateY(180deg) translateZ(0px);
 z-index:4;
 }
 
@@ -770,7 +771,7 @@ const angle = dragState.dir > 0
 ? -180 * progress
 :  180 * progress;
 
-active.style.transform = `rotateY(${angle}deg)`;
+active.style.transform = `rotateY(${angle}deg) translateZ(0px)`;
 }
 
 function dragEnd() {
