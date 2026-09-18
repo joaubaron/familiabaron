@@ -71,20 +71,11 @@ z-index:2;
 pointer-events:none;
 }
 
-/* A página que está sendo virada sai da pilha normal e vira uma
-camada isolada, sempre por cima de tudo. Como ela é a ÚNICA
-página com transform 3D em cada instante, o navegador nunca
-precisa comparar profundidade 3D entre duas páginas rotacionadas
-ao mesmo tempo — a origem do bug de "ficar atrás". */
 .page.flip-layer {
 z-index:999;
 pointer-events:none;
 }
 
-/* No retorno, a folha anterior é uma folha física presa à lombada esquerda.
-   Ela começa SOBRE a página atual (0deg) e cai para a direita (180deg).
-   Mantemos a face traseira visível durante a rotação para que a folha
-   nunca desapareça nem pareça nascer do fundo. */
 .page.backward-flip {
 backface-visibility: visible;
 }
@@ -238,7 +229,7 @@ font-style: italic; font-size:13px; color:#8a6b4a;
 letter-spacing:1px; opacity:0.85;
 }
 
-/* ---- ZOOM OVERLAY (com transição real de opacity) ---- */
+/* ---- ZOOM OVERLAY ---- */
 #zoom-overlay {
 position: fixed; inset: 0;
 background: rgba(20, 10, 5, 0.92);
@@ -510,19 +501,15 @@ const MUSIC_KEY = 'album-familia-musica-mutada';
 bgm.volume = 0.7;
 bgm.loop = true;
 
-// Estado desejado pelo usuário (persistido)
 let userWantsMusic = localStorage.getItem(MUSIC_KEY) !== '1';
 
 function updateMusicIcon() {
-// Ícone reflete o estado REAL do áudio, não a intenção
 const playing = !bgm.paused && !bgm.ended;
-// ▶ = tocando | ⏸ = pausado
 musicToggle.textContent = playing ? '\u2759\u2759' : '\u25B6\uFE0E';
 musicToggle.classList.toggle('is-pause', playing);
 musicToggle.setAttribute('aria-pressed', playing ? 'true' : 'false');
 }
 
-// Sincroniza ícone com eventos reais do áudio
 bgm.addEventListener('play',  updateMusicIcon);
 bgm.addEventListener('pause', updateMusicIcon);
 bgm.addEventListener('ended', updateMusicIcon);
@@ -533,12 +520,10 @@ try {
 await bgm.play();
 updateMusicIcon();
 } catch (_) {
-// Bloqueado: aguarda primeira interação real do usuário
-updateMusicIcon(); // mostra 🔇 até conseguir tocar
+updateMusicIcon();
 }
 }
 
-// Qualquer interação real (exceto o próprio botão) libera o áudio
 function unlockOnInteraction(e) {
 if (e && e.target && e.target.closest && e.target.closest('#music-toggle')) return;
 if (!userWantsMusic) return;
@@ -549,9 +534,8 @@ document.removeEventListener('pointerdown', unlockOnInteraction);
 }
 document.addEventListener('pointerdown', unlockOnInteraction);
 
-// Botão: alterna o ESTADO DESEJADO e aplica imediatamente
 musicToggle.addEventListener('click', async (e) => {
-e.stopPropagation(); // não deixa o unlock handler atrapalhar
+e.stopPropagation();
 
 userWantsMusic = !userWantsMusic;
 localStorage.setItem(MUSIC_KEY, userWantsMusic ? '0' : '1');
@@ -588,15 +572,13 @@ resetPinchZoom();
 }
 const zoomClose = document.getElementById('zoom-close');
 zoomClose.addEventListener('click', e => { e.stopPropagation(); closeZoom(); });
-// Fecha só se o toque foi no fundo escuro, não na própria foto —
-// senão atrapalharia tentar dar pinça ou arrastar pra ampliar.
 zoomOverlay.addEventListener('click', e => { if (e.target === zoomOverlay) closeZoom(); });
 document.addEventListener('keydown', e => {
 if (e.key === 'Escape') { closeZoom(); closeIndex(); }
 });
 
 /* ============================================================
-PINÇA PARA AMPLIAR / ARRASTAR PARA MOVER (dentro do zoom)
+PINÇA PARA AMPLIAR / ARRASTAR PARA MOVER
 ============================================================ */
 let pinchScale = 1;
 let pinchOffsetX = 0, pinchOffsetY = 0;
@@ -711,8 +693,6 @@ thumb.appendChild(img);
 thumb.appendChild(num);
 thumb.addEventListener('click', () => {
 closeIndex();
-// sincroniza o livro com a foto escolhida, sem animação de flip,
-// pra que ao fechar o zoom a pessoa já esteja na página certa
 current = i;
 mountWindow();
 updateNav();
@@ -744,8 +724,6 @@ indexOverlay.addEventListener('click', e => { if (e.target === indexOverlay) clo
 DESCOBERTA
 ============================================================ */
 async function discoverPhotos() {
-console.log('🔍 Procurando fotos...');
-
 try {
 const url = MANIFEST_URL + '?t=' + Date.now();
 const r = await fetch(url);
@@ -754,7 +732,7 @@ const list = await r.json();
 const normalized = normalizeList(list);
 if (normalized.length) return normalized;
 }
-} catch(e) { console.error('Erro manifest:', e); }
+} catch(e) {}
 
 try {
 const r = await fetch('fotos.json?t=' + Date.now());
@@ -766,7 +744,7 @@ if (normalized.length) return normalized;
 } catch(e) {}
 
 try {
-if (!navigator.onLine) throw new Error('offline — pulando fallback de API');
+if (!navigator.onLine) throw new Error('offline');
 const host = location.hostname;
 const parts = location.pathname.split('/').filter(Boolean);
 const repo = parts[0];
@@ -783,7 +761,7 @@ const files = data
 if (files.length) return normalizeList(files);
 }
 }
-} catch(e) { console.error('Erro API:', e); }
+} catch(e) {}
 
 return [];
 }
@@ -832,8 +810,6 @@ el.dataset.index = index;
 if (page.type === 'cover') {
 el.classList.add('cover');
 el.innerHTML = `<div class="cover-img"></div>`;
-// HEAD não baixa o arquivo, só confere se existe — a imagem em si já
-// é carregada uma única vez, pelo background-image do CSS.
 fetch(PHOTOS_DIR + 'capa.webp', { method: 'HEAD' })
 .then(r => { if (!r.ok) throw new Error('sem capa'); })
 .catch(() => {
@@ -964,20 +940,12 @@ if (!dragState) return;
 book.classList.remove('grabbing');
 
 [...book.children].forEach(el => {
-el.classList.remove('dragging', 'backward-flip');
-if (el.classList.contains('flip-layer')) {
-if (dragState.dir > 0) {
-el.classList.remove('flip-layer');
-el.classList.add('is-active');
-} else {
-el.classList.remove('flip-layer');
-el.classList.add('is-prev');
-}
-}
+el.classList.remove('dragging', 'backward-flip', 'flip-layer');
 el.style.transform = '';
 el.style.transformOrigin = '';
 el.style.zIndex = '';
 });
+mountWindow();
 dragState = null;
 }
 
@@ -1011,7 +979,7 @@ if (!active || !incoming) return;
 animating = true;
 
 if (direction > 0) {
-// Avançar: a página atual vira para a esquerda, sobre a próxima.
+// Avançar: a página atual vira para a esquerda (-180deg), revelando a próxima.
 active.classList.remove('is-active');
 active.classList.add('flip-layer');
 book.appendChild(active);
@@ -1031,8 +999,8 @@ animating = false;
 preloadAround();
 });
 } else {
-// Voltar: a folha anterior já está sobre a página atual,
-// presa à lombada esquerda. Ela simplesmente cai para a direita.
+// Voltar: a folha anterior começa dobrada à esquerda (-180deg)
+// e gira para a direita (0deg), caindo sobre a página atual.
 incoming.classList.remove('is-prev');
 incoming.classList.add('flip-layer', 'backward-flip');
 book.appendChild(incoming);
@@ -1042,11 +1010,9 @@ incoming.style.zIndex = '999';
 active.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
 
-// NÃO começa em 180deg. Começa exatamente sobre a página atual
-// e gira até 180deg em torno da lombada esquerda.
-incoming.style.transform = 'rotateY(0deg)';
+incoming.style.transform = 'rotateY(-180deg)';
 void incoming.offsetWidth;
-incoming.style.transform = 'rotateY(180deg)';
+incoming.style.transform = 'rotateY(0deg)';
 
 waitTransitionEnd(incoming, 700, () => {
 current = target;
@@ -1141,7 +1107,7 @@ dragState.incoming = incoming || null;
 dragState.other = other || null;
 
 if (dir > 0) {
-// Avançar: a página atual é a folha que vira.
+// Avançar: a página atual vira pra esquerda.
 if (active) {
 active.classList.add('dragging');
 active.classList.remove('is-active');
@@ -1149,24 +1115,19 @@ active.classList.add('flip-layer');
 book.appendChild(active);
 active.style.transformOrigin = 'left center';
 }
+if (incoming) incoming.style.zIndex = '2';
+if (other) other.style.zIndex = '1';
 } else {
-// Voltar: a folha anterior fica sobre a atual e é puxada
-// pela lombada esquerda, acompanhando o dedo para a direita.
+// Voltar: a folha anterior vem de -180deg (esquerda) para 0deg caindo sobre a atual.
 if (incoming) {
 incoming.classList.add('dragging', 'flip-layer', 'backward-flip');
 incoming.classList.remove('is-prev');
 book.appendChild(incoming);
 incoming.style.transformOrigin = 'left center';
 incoming.style.zIndex = '999';
-incoming.style.transform = 'rotateY(0deg)';
+incoming.style.transform = 'rotateY(-180deg)';
 }
 if (active) active.style.zIndex = '2';
-}
-
-if (dir > 0) {
-if (incoming) incoming.style.zIndex = '2';
-if (other) other.style.zIndex = '1';
-} else {
 if (other) other.style.zIndex = '1';
 }
 }
@@ -1183,7 +1144,7 @@ if (!page) return;
 
 const angle = dragState.dir > 0
 ? -180 * progress
-: 180 * progress;
+: -180 + (180 * progress);
 
 page.style.transform = `rotateY(${angle}deg)`;
 }
@@ -1194,7 +1155,7 @@ book.classList.remove('grabbing');
 if (!dragState || dragState.ended) return;
 dragState.ended = true;
 
-const { dir, dx, w, active: dragActive, incoming: dragIncoming, other: dragOther } = dragState;
+const { dir, dx, w, active: dragActive, incoming: dragIncoming } = dragState;
 const progress = Math.min(Math.abs(dx) / (w * 0.9), 1);
 const commit = dir !== 0 && (progress > 0.28 || Math.abs(dx) > w * 0.22);
 
@@ -1210,7 +1171,7 @@ animating = true;
 
 page.classList.remove('dragging');
 if (dir < 0) page.classList.add('backward-flip');
-page.style.transform = `rotateY(${dir > 0 ? -180 : 180}deg)`;
+page.style.transform = `rotateY(${dir > 0 ? -180 : 0}deg)`;
 
 const target = current + dir;
 
@@ -1223,17 +1184,17 @@ preloadAround();
 dragState = null;
 });
 } else {
-page.classList.remove('dragging', 'flip-layer', 'backward-flip');
-page.classList.add(dir > 0 ? 'is-active' : 'is-prev');
-page.style.transform = '';
-page.style.transformOrigin = '';
-page.style.zIndex = '';
+animating = true;
 
-if (dragActive && dir < 0) dragActive.style.zIndex = '';
-if (dragIncoming && dir > 0) dragIncoming.style.zIndex = '';
-if (dragOther) dragOther.style.zIndex = '';
+page.classList.remove('dragging');
+page.style.transform = `rotateY(${dir > 0 ? 0 : -180}deg)`;
 
+waitTransitionEnd(page, 700, () => {
+mountWindow();
+updateNav();
+animating = false;
 dragState = null;
+});
 }
 }
 
@@ -1299,30 +1260,15 @@ init();
 
 if ('serviceWorker' in navigator) {
 window.addEventListener('load', () => {
-// updateViaCache:'none' garante que o próprio sw.js NUNCA venha do
-// cache HTTP do navegador — toda checagem de atualização baixa o
-// arquivo de verdade, então a mudança no CACHE_VERSION é vista na hora.
 navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
 .then(reg => {
-console.log('SW registrado:', reg.scope);
-
-// Checa por atualização assim que o app volta a ficar visível
-// (ex.: usuário reabre o PWA fechado em segundo plano).
 document.addEventListener('visibilitychange', () => {
 if (document.visibilityState === 'visible') reg.update();
 });
-
-// Checagem periódica enquanto o app fica aberto, sem depender de
-// uma nova navegação para disparar a verificação.
 setInterval(() => reg.update(), 60 * 1000);
 })
 .catch(err => console.error('Falha no registro do SW:', err));
 
-// Quando o novo SW assume o controle (após skipWaiting + clients.claim),
-// recarrega a página uma vez para já exibir a versão nova imediatamente.
-// 'controllerchange' também dispara na primeiríssima instalação (quando
-// clients.claim() assume uma página que ainda não tinha SW) — isso não é
-// uma atualização de verdade, então ignoramos essa primeira ocorrência.
 let refreshing = false;
 let hadController = !!navigator.serviceWorker.controller;
 navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -1334,7 +1280,6 @@ window.location.reload();
 });
 });
 }
-
 </script>
 </body>
 </html>
