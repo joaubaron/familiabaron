@@ -1000,7 +1000,7 @@ animating = true;
 flipping.classList.remove('is-active');
 flipping.classList.add('flip-layer');
 book.appendChild(flipping);
-flipping.style.transformOrigin = direction > 0 ? 'left center' : 'right center';
+flipping.style.transformOrigin = 'left center';
 
 incoming.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
@@ -1104,7 +1104,7 @@ active.classList.add('dragging');
 active.classList.remove('is-active');
 active.classList.add('flip-layer');
 book.appendChild(active);
-active.style.transformOrigin = dir > 0 ? 'left center' : 'right center';
+active.style.transformOrigin = 'left center';
 }
 
 if (incoming) incoming.style.zIndex = '2';
