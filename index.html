@@ -506,6 +506,7 @@ if (normalized.length) return normalized;
 } catch(e) {}
 
 try {
+if (!navigator.onLine) throw new Error('offline — pulando fallback de API');
 const host = location.hostname;
 const parts = location.pathname.split('/').filter(Boolean);
 const repo = parts[0];
@@ -571,12 +572,14 @@ el.dataset.index = index;
 if (page.type === 'cover') {
 el.classList.add('cover');
 el.innerHTML = `<div class="cover-img"></div>`;
-const testImg = new Image();
-testImg.onerror = () => {
+// HEAD não baixa o arquivo, só confere se existe — a imagem em si já
+// é carregada uma única vez, pelo background-image do CSS.
+fetch(PHOTOS_DIR + 'capa.webp', { method: 'HEAD' })
+.then(r => { if (!r.ok) throw new Error('sem capa'); })
+.catch(() => {
 const coverEl = el.querySelector('.cover-img');
 if (coverEl) coverEl.classList.add('cover-img-fallback');
-};
-testImg.src = PHOTOS_DIR + 'capa.webp';
+});
 } else if (page.type === 'end') {
 el.classList.add('end-page');
 el.innerHTML = `
@@ -974,7 +977,9 @@ return;
 }
 pages = buildPages(photos);
 loading.style.display = 'none';
-current = 0;
+const savedPage = parseInt(sessionStorage.getItem('album-familia-pagina'), 10);
+sessionStorage.removeItem('album-familia-pagina');
+current = (Number.isInteger(savedPage) && savedPage >= 0 && savedPage < pages.length) ? savedPage : 0;
 mountWindow();
 updateNav();
 preloadAround();
@@ -1006,10 +1011,16 @@ setInterval(() => reg.update(), 60 * 1000);
 
 // Quando o novo SW assume o controle (após skipWaiting + clients.claim),
 // recarrega a página uma vez para já exibir a versão nova imediatamente.
+// 'controllerchange' também dispara na primeiríssima instalação (quando
+// clients.claim() assume uma página que ainda não tinha SW) — isso não é
+// uma atualização de verdade, então ignoramos essa primeira ocorrência.
 let refreshing = false;
+let hadController = !!navigator.serviceWorker.controller;
 navigator.serviceWorker.addEventListener('controllerchange', () => {
 if (refreshing) return;
+if (!hadController) { hadController = true; return; }
 refreshing = true;
+sessionStorage.setItem('album-familia-pagina', String(current));
 window.location.reload();
 });
 });
