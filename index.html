@@ -30,9 +30,6 @@ perspective: 1600px;
 }
 #book.grabbing { cursor: grabbing; }
 
-/* ============================================================
-PÁGINAS
-============================================================ */
 .page {
 position:absolute;
 width:min(92vw, 520px);
@@ -71,11 +68,6 @@ z-index:2;
 pointer-events:none;
 }
 
-/* A página que está sendo virada sai da pilha normal e vira uma
-camada isolada, sempre por cima de tudo. Como ela é a ÚNICA
-página com transform 3D em cada instante, o navegador nunca
-precisa comparar profundidade 3D entre duas páginas rotacionadas
-ao mesmo tempo — a origem do bug de "ficar atrás". */
 .page.flip-layer {
 z-index:999;
 pointer-events:none;
@@ -98,7 +90,6 @@ text-align:center; font-size:13px; color:#8a6b4a;
 font-style:italic; letter-spacing:1px;
 }
 
-/* ---- MOLDURA + FOTO ---- */
 .photo-frame {
 flex: 1;
 display: flex;
@@ -161,7 +152,6 @@ background: #e8dcc4;
 border-radius: 2px;
 }
 
-/* ---- CAPA ---- */
 .cover {
 position: relative;
 padding: 0 !important;
@@ -179,10 +169,7 @@ background-position: center;
 background-color: #2a1a0e;
 z-index: 1;
 }
-
-.cover-img.cover-img-fallback {
-background-image: none;
-}
+.cover-img.cover-img-fallback { background-image: none; }
 .cover-img.cover-img-fallback::before {
 content: '📷';
 position: absolute;
@@ -194,7 +181,6 @@ font-size: 64px;
 opacity: 0.35;
 }
 
-/* ---- PÁGINA FINAL ---- */
 .end-page {
 padding: 22px 22px 40px;
 justify-content: center;
@@ -230,7 +216,6 @@ font-style: italic; font-size:13px; color:#8a6b4a;
 letter-spacing:1px; opacity:0.85;
 }
 
-/* ---- ZOOM OVERLAY (com transição real de opacity) ---- */
 #zoom-overlay {
 position: fixed; inset: 0;
 background: rgba(20, 10, 5, 0.92);
@@ -268,7 +253,6 @@ text-shadow: 0 2px 6px rgba(0,0,0,0.8);
 }
 #zoom-close:active { transform: scale(0.9); }
 
-/* ---- ÍNDICE DE MINIATURAS ---- */
 #index-toggle {
 position:absolute; top:12px; left:14px; z-index:100;
 background: transparent;
@@ -348,7 +332,6 @@ text-shadow: 0 1px 3px rgba(0,0,0,0.9);
 font-style: italic;
 }
 
-/* ---- CONTROLES ---- */
 .nav {
 position:absolute; bottom:0; left:0; right:0;
 display:flex; justify-content:space-between;
@@ -385,7 +368,6 @@ color:#e0c8a0; font-style:italic; z-index:200;
 background:#2b1810;
 }
 
-/* ---- CONTROLE DE MÚSICA ---- */
 #music-toggle {
 position:absolute; top:12px; right:14px; z-index:100;
 background: transparent;
@@ -403,20 +385,9 @@ text-shadow: 0 2px 6px rgba(0,0,0,0.7);
 -webkit-text-fill-color: #ffffff;
 font-family: 'Segoe UI Symbol', 'Apple Symbols', 'Noto Sans Symbols', sans-serif;
 }
-
-#music-toggle:active {
-transform: scale(0.9);
-opacity: 0.8;
-background: transparent;
-}
-
-#music-toggle.is-pause {
-transform: scale(0.65);
-}
-
-#music-toggle.is-pause:active {
-transform: scale(0.58);
-}
+#music-toggle:active { transform: scale(0.9); opacity: 0.8; background: transparent; }
+#music-toggle.is-pause { transform: scale(0.65); }
+#music-toggle.is-pause:active { transform: scale(0.58); }
 
 @media (max-width:480px) {
 .page { width:94vw; height:78vh; padding:16px 16px 36px; }
@@ -427,7 +398,6 @@ transform: scale(0.58);
 .end-message { font-size: 15px; }
 .end-title { font-size: 22px; }
 }
-
 @media (max-height: 480px) and (orientation: landscape) {
 .page { height: 92vh; padding: 10px 16px 30px; }
 .photo img { max-height: 60vh; }
@@ -435,7 +405,6 @@ transform: scale(0.58);
 .end-message { font-size: 13px; margin-bottom: 12px; }
 .end-ornament { font-size: 28px; margin-bottom: 10px; }
 }
-
 @media (prefers-reduced-motion: reduce) {
 .page { transition-duration: 1ms !important; }
 #zoom-overlay { transition-duration: 1ms !important; }
@@ -445,7 +414,6 @@ transform: scale(0.58);
 <body>
 
 <div id="loading">Abrindo o álbum…</div>
-
 <div id="book"></div>
 
 <button id="music-toggle" aria-label="Ligar/desligar música" aria-pressed="false">▶&#xFE0E;</button>
@@ -492,45 +460,28 @@ let pages = [];
 let current = 0;
 let animating = false;
 
-/* ============================================================
-MÚSICA DE FUNDO
-============================================================ */
+/* ================= MÚSICA ================= */
 const bgm = document.getElementById('bgm');
 const musicToggle = document.getElementById('music-toggle');
 const MUSIC_KEY = 'album-familia-musica-mutada';
-
 bgm.volume = 0.7;
 bgm.loop = true;
-
-// Estado desejado pelo usuário (persistido)
 let userWantsMusic = localStorage.getItem(MUSIC_KEY) !== '1';
 
 function updateMusicIcon() {
-// Ícone reflete o estado REAL do áudio, não a intenção
 const playing = !bgm.paused && !bgm.ended;
-// ▶ = tocando | ⏸ = pausado
 musicToggle.textContent = playing ? '\u2759\u2759' : '\u25B6\uFE0E';
 musicToggle.classList.toggle('is-pause', playing);
 musicToggle.setAttribute('aria-pressed', playing ? 'true' : 'false');
 }
-
-// Sincroniza ícone com eventos reais do áudio
 bgm.addEventListener('play',  updateMusicIcon);
 bgm.addEventListener('pause', updateMusicIcon);
 bgm.addEventListener('ended', updateMusicIcon);
 
 async function tryPlayMusic() {
 if (!userWantsMusic) { updateMusicIcon(); return; }
-try {
-await bgm.play();
-updateMusicIcon();
-} catch (_) {
-// Bloqueado: aguarda primeira interação real do usuário
-updateMusicIcon(); // mostra 🔇 até conseguir tocar
+try { await bgm.play(); updateMusicIcon(); } catch (_) { updateMusicIcon(); }
 }
-}
-
-// Qualquer interação real (exceto o próprio botão) libera o áudio
 function unlockOnInteraction(e) {
 if (e && e.target && e.target.closest && e.target.closest('#music-toggle')) return;
 if (!userWantsMusic) return;
@@ -541,27 +492,18 @@ document.removeEventListener('pointerdown', unlockOnInteraction);
 }
 document.addEventListener('pointerdown', unlockOnInteraction);
 
-// Botão: alterna o ESTADO DESEJADO e aplica imediatamente
 musicToggle.addEventListener('click', async (e) => {
-e.stopPropagation(); // não deixa o unlock handler atrapalhar
-
+e.stopPropagation();
 userWantsMusic = !userWantsMusic;
 localStorage.setItem(MUSIC_KEY, userWantsMusic ? '0' : '1');
-
-if (userWantsMusic) {
-try { await bgm.play(); } catch (_) {}
-} else {
-bgm.pause();
-}
+if (userWantsMusic) { try { await bgm.play(); } catch (_) {} }
+else { bgm.pause(); }
 updateMusicIcon();
 });
-
 updateMusicIcon();
 tryPlayMusic();
 
-/* ============================================================
-ZOOM OVERLAY
-============================================================ */
+/* ================= ZOOM ================= */
 function openZoom(src, alt) {
 if (zoomOverlay.classList.contains('visible')) return;
 resetPinchZoom();
@@ -580,16 +522,12 @@ resetPinchZoom();
 }
 const zoomClose = document.getElementById('zoom-close');
 zoomClose.addEventListener('click', e => { e.stopPropagation(); closeZoom(); });
-// Fecha só se o toque foi no fundo escuro, não na própria foto —
-// senão atrapalharia tentar dar pinça ou arrastar pra ampliar.
 zoomOverlay.addEventListener('click', e => { if (e.target === zoomOverlay) closeZoom(); });
 document.addEventListener('keydown', e => {
 if (e.key === 'Escape') { closeZoom(); closeIndex(); }
 });
 
-/* ============================================================
-PINÇA PARA AMPLIAR / ARRASTAR PARA MOVER (dentro do zoom)
-============================================================ */
+/* ================= PINÇA ================= */
 let pinchScale = 1;
 let pinchOffsetX = 0, pinchOffsetY = 0;
 const pinchPointers = new Map();
@@ -614,11 +552,9 @@ const maxY = (pinchScale - 1) * window.innerHeight / 2;
 pinchOffsetX = Math.min(maxX, Math.max(-maxX, pinchOffsetX));
 pinchOffsetY = Math.min(maxY, Math.max(-maxY, pinchOffsetY));
 }
-
 zoomImg.addEventListener('pointerdown', e => {
 pinchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 try { zoomImg.setPointerCapture(e.pointerId); } catch(_) {}
-
 if (pinchPointers.size === 1) {
 panStart = { x: e.clientX, y: e.clientY, offsetX: pinchOffsetX, offsetY: pinchOffsetY };
 } else if (pinchPointers.size === 2) {
@@ -628,11 +564,9 @@ pinchStartScale = pinchScale;
 panStart = null;
 }
 });
-
 zoomImg.addEventListener('pointermove', e => {
 if (!pinchPointers.has(e.pointerId)) return;
 pinchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
 if (pinchPointers.size === 2) {
 const pts = [...pinchPointers.values()];
 const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -649,13 +583,10 @@ clampPinchOffsets();
 applyPinchTransform();
 }
 });
-
 function endPinchPointer(e) {
 pinchPointers.delete(e.pointerId);
 try { zoomImg.releasePointerCapture(e.pointerId); } catch(_) {}
-
 if (pinchPointers.size < 2) pinchStartDist = 0;
-
 if (pinchPointers.size === 1) {
 const p = [...pinchPointers.values()][0];
 panStart = { x: p.x, y: p.y, offsetX: pinchOffsetX, offsetY: pinchOffsetY };
@@ -670,9 +601,7 @@ applyPinchTransform();
 zoomImg.addEventListener('pointerup', endPinchPointer);
 zoomImg.addEventListener('pointercancel', endPinchPointer);
 
-/* ============================================================
-ÍNDICE DE MINIATURAS
-============================================================ */
+/* ================= ÍNDICE ================= */
 const indexToggle = document.getElementById('index-toggle');
 const indexOverlay = document.getElementById('index-overlay');
 const indexGrid = document.getElementById('index-grid');
@@ -684,27 +613,21 @@ pages.forEach((p, i) => {
 if (p.type !== 'photo') return;
 const item = p.items[0];
 const src = PHOTOS_DIR + encodeURIComponent(item.file);
-
 const thumb = document.createElement('div');
 thumb.className = 'index-thumb';
-
 const img = document.createElement('img');
 img.src = src;
 img.alt = item.caption;
 img.loading = 'lazy';
 img.decoding = 'async';
 img.draggable = false;
-
 const num = document.createElement('span');
 num.className = 'index-thumb-num';
 num.textContent = i;
-
 thumb.appendChild(img);
 thumb.appendChild(num);
 thumb.addEventListener('click', () => {
 closeIndex();
-// sincroniza o livro com a foto escolhida, sem animação de flip,
-// pra que ao fechar o zoom a pessoa já esteja na página certa
 current = i;
 mountWindow();
 updateNav();
@@ -714,7 +637,6 @@ openZoom(src, item.caption);
 indexGrid.appendChild(thumb);
 });
 }
-
 function openIndex() {
 if (!pages.length || animating) return;
 closeZoom();
@@ -727,17 +649,12 @@ if (!indexOverlay.classList.contains('visible')) return;
 indexOverlay.classList.remove('visible');
 indexOverlay.setAttribute('aria-hidden', 'true');
 }
-
 indexToggle.addEventListener('click', e => { e.stopPropagation(); openIndex(); });
 indexClose.addEventListener('click', closeIndex);
 indexOverlay.addEventListener('click', e => { if (e.target === indexOverlay) closeIndex(); });
 
-/* ============================================================
-DESCOBERTA
-============================================================ */
+/* ================= DESCOBERTA ================= */
 async function discoverPhotos() {
-console.log('🔍 Procurando fotos...');
-
 try {
 const url = MANIFEST_URL + '?t=' + Date.now();
 const r = await fetch(url);
@@ -758,7 +675,7 @@ if (normalized.length) return normalized;
 } catch(e) {}
 
 try {
-if (!navigator.onLine) throw new Error('offline — pulando fallback de API');
+if (!navigator.onLine) throw new Error('offline');
 const host = location.hostname;
 const parts = location.pathname.split('/').filter(Boolean);
 const repo = parts[0];
@@ -813,9 +730,7 @@ if (fileList.length > 0) pgs.push({ type:'end' });
 return pgs;
 }
 
-/* ============================================================
-RENDER
-============================================================ */
+/* ================= RENDER ================= */
 function renderPage(page, index) {
 const el = document.createElement('div');
 el.className = 'page';
@@ -824,8 +739,6 @@ el.dataset.index = index;
 if (page.type === 'cover') {
 el.classList.add('cover');
 el.innerHTML = `<div class="cover-img"></div>`;
-// HEAD não baixa o arquivo, só confere se existe — a imagem em si já
-// é carregada uma única vez, pelo background-image do CSS.
 fetch(PHOTOS_DIR + 'capa.webp', { method: 'HEAD' })
 .then(r => { if (!r.ok) throw new Error('sem capa'); })
 .catch(() => {
@@ -855,7 +768,6 @@ frame.className = 'photo-frame';
 page.items.forEach((item) => {
 const wrap = document.createElement('div');
 wrap.className = 'photo';
-
 const seed = (item.file.length * (index + 1)) % 3;
 wrap.style.setProperty('--rot', (seed - 1) * 0.8 + 'deg');
 
@@ -904,9 +816,7 @@ el.appendChild(pn);
 return el;
 }
 
-/* ============================================================
-PRELOAD
-============================================================ */
+/* ================= PRELOAD ================= */
 const preloadCache = new Set();
 function preloadPage(index) {
 const p = pages[index];
@@ -926,9 +836,7 @@ preloadPage(current + 2);
 preloadPage(current - 1);
 }
 
-/* ============================================================
-JANELA DE 3 PÁGINAS
-============================================================ */
+/* ================= JANELA 3 PÁGINAS ================= */
 function mountWindow() {
 book.innerHTML = '';
 const order = [current - 1, current, current + 1];
@@ -948,9 +856,7 @@ nextBtn.disabled = current >= pages.length - 1;
 restartBtn.disabled = current <= 0;
 }
 
-/* ============================================================
-NAVEGAÇÃO — EFEITO DE PÁGINA VIRANDO
-============================================================ */
+/* ================= NAVEGAÇÃO ================= */
 function cancelDrag() {
 if (!dragState) return;
 book.classList.remove('grabbing');
@@ -970,7 +876,6 @@ dragState = null;
 
 function waitTransitionEnd(el, fallbackMs, cb) {
 let done = false;
-
 const finish = () => {
 if (done) return;
 done = true;
@@ -978,7 +883,6 @@ el.removeEventListener('transitionend', finish);
 clearTimeout(timer);
 cb();
 };
-
 const timer = setTimeout(finish, fallbackMs);
 el.addEventListener('transitionend', finish, { once:true });
 }
@@ -989,24 +893,34 @@ if (animating) return;
 const target = current + direction;
 if (target < 0 || target >= pages.length) return;
 
-const flipping = book.querySelector('.is-active');
-const incoming = book.querySelector(direction > 0 ? '.is-next' : '.is-prev');
+const flipping = book.querySelector(direction > 0 ? '.is-active' : '.is-prev');
+const incoming = book.querySelector(direction > 0 ? '.is-next' : '.is-active');
 const other = book.querySelector(direction > 0 ? '.is-prev' : '.is-next');
 
 if (!flipping || !incoming) return;
 
 animating = true;
 
+if (direction > 0) {
 flipping.classList.remove('is-active');
 flipping.classList.add('flip-layer');
 book.appendChild(flipping);
 flipping.style.transformOrigin = 'left center';
-
 incoming.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
-
 void flipping.offsetWidth;
-flipping.style.transform = `rotateY(${direction > 0 ? -180 : 180}deg)`;
+flipping.style.transform = 'rotateY(-180deg)';
+} else {
+flipping.classList.remove('is-prev');
+flipping.classList.add('flip-layer');
+book.appendChild(flipping);
+flipping.style.transformOrigin = 'left center';
+flipping.style.transform = 'rotateY(180deg)';
+incoming.style.zIndex = '2';
+if (other) other.style.zIndex = '1';
+void flipping.offsetWidth;
+flipping.style.transform = 'rotateY(0deg)';
+}
 
 waitTransitionEnd(flipping, 700, () => {
 current = target;
@@ -1023,14 +937,11 @@ nextBtn.addEventListener('click', () => go(1));
 restartBtn.addEventListener('click', () => {
 if (animating || current <= 0) return;
 animating = true;
-
 current = 0;
 mountWindow();
 updateNav();
 preloadAround();
-
 animating = false;
-
 hint.classList.remove('hide');
 setTimeout(() => hint.classList.add('hide'), 2000);
 });
@@ -1040,14 +951,11 @@ if (e.key === 'ArrowRight') go(1);
 if (e.key === 'ArrowLeft')  go(-1);
 });
 
-/* ============================================================
-DRAG / SWIPE — A PÁGINA VIRA CONFORME O DEDO
-============================================================ */
+/* ================= DRAG / SWIPE ================= */
 let dragState = null;
 
 function dragStart(x, y, pointerId) {
 if (animating) return;
-
 dragState = {
 startX: x,
 startY: y,
@@ -1059,9 +967,12 @@ pointerId,
 active: null,
 incoming: null,
 other: null,
-captured: false
+flipEl: null,
+startAngle: 0,
+endAngle: 0,
+captured: false,
+ended: false
 };
-
 book.classList.add('grabbing');
 }
 
@@ -1099,33 +1010,29 @@ dragState.active = active || null;
 dragState.incoming = incoming || null;
 dragState.other = other || null;
 
-if (active) {
-active.classList.add('dragging');
-active.classList.remove('is-active');
-active.classList.add('flip-layer');
-book.appendChild(active);
-active.style.transformOrigin = 'left center';
+const flipEl = (dir > 0) ? active : incoming;
+dragState.flipEl = flipEl;
+dragState.startAngle = (dir > 0) ? 0 : 180;
+dragState.endAngle   = (dir > 0) ? -180 : 0;
+
+if (flipEl) {
+flipEl.classList.add('dragging');
+flipEl.classList.remove(dir > 0 ? 'is-active' : 'is-prev');
+flipEl.classList.add('flip-layer');
+book.appendChild(flipEl);
+flipEl.style.transformOrigin = 'left center';
+flipEl.style.transform = `rotateY(${dragState.startAngle}deg)`;
 }
 
 if (incoming) incoming.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
 }
 
-if (!dragState.dir) return;
+if (!dragState.dir || !dragState.flipEl) return;
 
-const progress = Math.min(
-Math.abs(dx) / (dragState.w * 0.9),
-1
-);
-
-const active = dragState.active;
-if (!active) return;
-
-const angle = dragState.dir > 0
-? -180 * progress
-:  180 * progress;
-
-active.style.transform = `rotateY(${angle}deg)`;
+const progress = Math.min(Math.abs(dx) / (dragState.w * 0.9), 1);
+const angle = dragState.startAngle + (dragState.endAngle - dragState.startAngle) * progress;
+dragState.flipEl.style.transform = `rotateY(${angle}deg)`;
 }
 
 function dragEnd() {
@@ -1134,26 +1041,23 @@ book.classList.remove('grabbing');
 if (!dragState || dragState.ended) return;
 dragState.ended = true;
 
-const { dir, dx, w, active: dragActive, incoming: dragIncoming, other: dragOther } = dragState;
+const { dir, dx, w, flipEl, incoming: dragIncoming, other: dragOther } = dragState;
 const progress = Math.min(Math.abs(dx) / (w * 0.9), 1);
 const commit = dir !== 0 && (progress > 0.28 || Math.abs(dx) > w * 0.22);
 
-const active = dragActive;
-
-if (!dir || !active) {
+if (!dir || !flipEl) {
 cancelDrag();
 return;
 }
 
 if (commit) {
 animating = true;
-
-active.classList.remove('dragging');
-active.style.transform = `rotateY(${dir > 0 ? -180 : 180}deg)`;
+flipEl.classList.remove('dragging');
+flipEl.style.transform = `rotateY(${dragState.endAngle}deg)`;
 
 const target = current + dir;
 
-waitTransitionEnd(active, 700, () => {
+waitTransitionEnd(flipEl, 700, () => {
 current = target;
 mountWindow();
 updateNav();
@@ -1162,11 +1066,11 @@ preloadAround();
 dragState = null;
 });
 } else {
-active.classList.remove('dragging', 'flip-layer');
-active.classList.add('is-active');
-active.style.transform = '';
-active.style.transformOrigin = '';
-active.style.zIndex = '';
+flipEl.classList.remove('dragging', 'flip-layer');
+flipEl.classList.add(dir > 0 ? 'is-active' : 'is-prev');
+flipEl.style.transform = '';
+flipEl.style.transformOrigin = '';
+flipEl.style.zIndex = '';
 
 if (dragIncoming) dragIncoming.style.zIndex = '';
 if (dragOther) dragOther.style.zIndex = '';
@@ -1175,9 +1079,7 @@ dragState = null;
 }
 }
 
-/* ============================================================
-GESTOS DE TOQUE
-============================================================ */
+/* ================= GESTOS ================= */
 book.addEventListener('pointerdown', e => {
 if (e.target.closest('.nav')) return;
 dragStart(e.clientX, e.clientY, e.pointerId);
@@ -1185,12 +1087,10 @@ dragStart(e.clientX, e.clientY, e.pointerId);
 
 book.addEventListener('pointermove', e => {
 if (!dragState || e.pointerId !== dragState.pointerId) return;
-
 if (!dragState.captured && Math.abs(e.clientX - dragState.startX) > 10) {
 try { book.setPointerCapture(e.pointerId); } catch(_) {}
 dragState.captured = true;
 }
-
 dragMove(e.clientX, e.clientY);
 });
 
@@ -1211,9 +1111,7 @@ try { book.releasePointerCapture(e.pointerId); } catch(_) {}
 dragEnd();
 });
 
-/* ============================================================
-INIT
-============================================================ */
+/* ================= INIT ================= */
 async function init() {
 const files = await discoverPhotos();
 photos = files;
@@ -1230,37 +1128,22 @@ current = (Number.isInteger(savedPage) && savedPage >= 0 && savedPage < pages.le
 mountWindow();
 updateNav();
 preloadAround();
-
 setTimeout(() => hint.classList.add('hide'), 4000);
 }
 init();
 
 if ('serviceWorker' in navigator) {
 window.addEventListener('load', () => {
-// updateViaCache:'none' garante que o próprio sw.js NUNCA venha do
-// cache HTTP do navegador — toda checagem de atualização baixa o
-// arquivo de verdade, então a mudança no CACHE_VERSION é vista na hora.
 navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
 .then(reg => {
 console.log('SW registrado:', reg.scope);
-
-// Checa por atualização assim que o app volta a ficar visível
-// (ex.: usuário reabre o PWA fechado em segundo plano).
 document.addEventListener('visibilitychange', () => {
 if (document.visibilityState === 'visible') reg.update();
 });
-
-// Checagem periódica enquanto o app fica aberto, sem depender de
-// uma nova navegação para disparar a verificação.
 setInterval(() => reg.update(), 60 * 1000);
 })
 .catch(err => console.error('Falha no registro do SW:', err));
 
-// Quando o novo SW assume o controle (após skipWaiting + clients.claim),
-// recarrega a página uma vez para já exibir a versão nova imediatamente.
-// 'controllerchange' também dispara na primeiríssima instalação (quando
-// clients.claim() assume uma página que ainda não tinha SW) — isso não é
-// uma atualização de verdade, então ignoramos essa primeira ocorrência.
 let refreshing = false;
 let hadController = !!navigator.serviceWorker.controller;
 navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -1272,7 +1155,6 @@ window.location.reload();
 });
 });
 }
-
 </script>
 </body>
 </html>
