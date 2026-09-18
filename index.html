@@ -24,7 +24,7 @@ user-select:none;
 position:absolute; inset:0;
 display:flex; align-items:center; justify-content:center;
 cursor: grab;
-touch-action: pan-y;
+touch-action: none;
 overflow: hidden;
 perspective: 1600px;
 }
@@ -490,6 +490,7 @@ let photos = [];
 let pages = [];
 let current = 0;
 let animating = false;
+let coverStatus = null;
 
 /* ============================================================
 MÚSICA DE FUNDO
@@ -697,7 +698,6 @@ current = i;
 mountWindow();
 updateNav();
 preloadAround();
-openZoom(src, item.caption);
 });
 indexGrid.appendChild(thumb);
 });
@@ -810,12 +810,22 @@ el.dataset.index = index;
 if (page.type === 'cover') {
 el.classList.add('cover');
 el.innerHTML = `<div class="cover-img"></div>`;
-fetch(PHOTOS_DIR + 'capa.webp', { method: 'HEAD' })
-.then(r => { if (!r.ok) throw new Error('sem capa'); })
-.catch(() => {
+
+const applyCoverFallback = () => {
+if (coverStatus === false) {
 const coverEl = el.querySelector('.cover-img');
 if (coverEl) coverEl.classList.add('cover-img-fallback');
-});
+}
+};
+
+if (coverStatus === null) {
+fetch(PHOTOS_DIR + 'capa.webp', { method: 'HEAD' })
+.then(r => { coverStatus = r.ok; })
+.catch(() => { coverStatus = false; })
+.finally(applyCoverFallback);
+} else {
+applyCoverFallback();
+}
 } else if (page.type === 'end') {
 el.classList.add('end-page');
 el.innerHTML = `
@@ -860,11 +870,23 @@ wrap.insertBefore(ph, img);
 };
 
 let downX = 0, downY = 0;
+img.dataset.dragged = '';
+
 img.addEventListener('pointerdown', e => {
 downX = e.clientX;
 downY = e.clientY;
+img.dataset.dragged = '';   // reseta estado a cada novo toque
 });
+
+img.addEventListener('pointermove', e => {
+if (img.dataset.dragged === '' &&
+Math.hypot(e.clientX - downX, e.clientY - downY) > 10) {
+img.dataset.dragged = '1';   // marca: virou arrasto
+}
+});
+
 img.addEventListener('pointerup', e => {
+if (img.dataset.dragged === '1') return;   // foi drag → não abre zoom
 if (Math.hypot(e.clientX - downX, e.clientY - downY) > 10) return;
 openZoom(img.src, img.alt);
 });
@@ -1277,9 +1299,10 @@ navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
 document.addEventListener('visibilitychange', () => {
 if (document.visibilityState === 'visible') reg.update();
 });
-setInterval(() => reg.update(), 60 * 1000);
 })
 .catch(err => console.error('Falha no registro do SW:', err));
+});
+}
 
 let refreshing = false;
 let hadController = !!navigator.serviceWorker.controller;
@@ -1290,8 +1313,6 @@ refreshing = true;
 sessionStorage.setItem('album-familia-pagina', String(current));
 window.location.reload();
 });
-});
-}
 </script>
 </body>
 </html>
