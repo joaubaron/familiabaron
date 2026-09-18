@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -959,8 +958,13 @@ book.classList.remove('grabbing');
 [...book.children].forEach(el => {
 el.classList.remove('dragging');
 if (el.classList.contains('flip-layer')) {
+if (dragState.dir > 0) {
 el.classList.remove('flip-layer');
 el.classList.add('is-active');
+} else {
+el.classList.remove('flip-layer');
+el.classList.add('is-prev');
+}
 }
 el.style.transform = '';
 el.style.transformOrigin = '';
@@ -990,32 +994,58 @@ if (animating) return;
 const target = current + direction;
 if (target < 0 || target >= pages.length) return;
 
-const flipping = book.querySelector('.is-active');
+const active = book.querySelector('.is-active');
 const incoming = book.querySelector(direction > 0 ? '.is-next' : '.is-prev');
 const other = book.querySelector(direction > 0 ? '.is-prev' : '.is-next');
 
-if (!flipping || !incoming) return;
+if (!active || !incoming) return;
 
 animating = true;
 
-flipping.classList.remove('is-active');
-flipping.classList.add('flip-layer');
-book.appendChild(flipping);
-flipping.style.transformOrigin = 'left center';
+if (direction > 0) {
+// Avançar: a página atual vira para a esquerda, sobre a próxima.
+active.classList.remove('is-active');
+active.classList.add('flip-layer');
+book.appendChild(active);
+active.style.transformOrigin = 'left center';
 
 incoming.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
 
-void flipping.offsetWidth;
-flipping.style.transform = `rotateY(${direction > 0 ? -180 : 180}deg)`;
+void active.offsetWidth;
+active.style.transform = 'rotateY(-180deg)';
 
-waitTransitionEnd(flipping, 700, () => {
+waitTransitionEnd(active, 700, () => {
 current = target;
 mountWindow();
 updateNav();
 animating = false;
 preloadAround();
 });
+} else {
+// Voltar: a página anterior vem da esquerda e passa por cima da atual.
+incoming.classList.remove('is-prev');
+incoming.classList.add('flip-layer');
+book.appendChild(incoming);
+incoming.style.transformOrigin = 'left center';
+incoming.style.zIndex = '999';
+
+active.style.zIndex = '2';
+if (other) other.style.zIndex = '1';
+
+// Começa fechada (180°) e abre para a página atual (0°).
+incoming.style.transform = 'rotateY(180deg)';
+void incoming.offsetWidth;
+incoming.style.transform = 'rotateY(0deg)';
+
+waitTransitionEnd(incoming, 700, () => {
+current = target;
+mountWindow();
+updateNav();
+animating = false;
+preloadAround();
+});
+}
 }
 
 prevBtn.addEventListener('click', () => go(-1));
@@ -1100,6 +1130,8 @@ dragState.active = active || null;
 dragState.incoming = incoming || null;
 dragState.other = other || null;
 
+if (dir > 0) {
+// Avançar: a página atual é a folha que vira.
 if (active) {
 active.classList.add('dragging');
 active.classList.remove('is-active');
@@ -1107,9 +1139,25 @@ active.classList.add('flip-layer');
 book.appendChild(active);
 active.style.transformOrigin = 'left center';
 }
+} else {
+// Voltar: a página anterior é a folha que vem por cima.
+if (incoming) {
+incoming.classList.add('dragging', 'flip-layer');
+incoming.classList.remove('is-prev');
+book.appendChild(incoming);
+incoming.style.transformOrigin = 'left center';
+incoming.style.zIndex = '999';
+incoming.style.transform = 'rotateY(180deg)';
+}
+if (active) active.style.zIndex = '2';
+}
 
+if (dir > 0) {
 if (incoming) incoming.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
+} else {
+if (other) other.style.zIndex = '1';
+}
 }
 
 if (!dragState.dir) return;
@@ -1119,14 +1167,14 @@ Math.abs(dx) / (dragState.w * 0.9),
 1
 );
 
-const active = dragState.active;
-if (!active) return;
+const page = dragState.dir > 0 ? dragState.active : dragState.incoming;
+if (!page) return;
 
 const angle = dragState.dir > 0
 ? -180 * progress
-:  180 * progress;
+: 180 - (180 * progress);
 
-active.style.transform = `rotateY(${angle}deg)`;
+page.style.transform = `rotateY(${angle}deg)`;
 }
 
 function dragEnd() {
@@ -1139,9 +1187,9 @@ const { dir, dx, w, active: dragActive, incoming: dragIncoming, other: dragOther
 const progress = Math.min(Math.abs(dx) / (w * 0.9), 1);
 const commit = dir !== 0 && (progress > 0.28 || Math.abs(dx) > w * 0.22);
 
-const active = dragActive;
+const page = dir > 0 ? dragActive : dragIncoming;
 
-if (!dir || !active) {
+if (!dir || !page) {
 cancelDrag();
 return;
 }
@@ -1149,12 +1197,12 @@ return;
 if (commit) {
 animating = true;
 
-active.classList.remove('dragging');
-active.style.transform = `rotateY(${dir > 0 ? -180 : 180}deg)`;
+page.classList.remove('dragging');
+page.style.transform = `rotateY(${dir > 0 ? -180 : 0}deg)`;
 
 const target = current + dir;
 
-waitTransitionEnd(active, 700, () => {
+waitTransitionEnd(page, 700, () => {
 current = target;
 mountWindow();
 updateNav();
@@ -1163,13 +1211,14 @@ preloadAround();
 dragState = null;
 });
 } else {
-active.classList.remove('dragging', 'flip-layer');
-active.classList.add('is-active');
-active.style.transform = '';
-active.style.transformOrigin = '';
-active.style.zIndex = '';
+page.classList.remove('dragging', 'flip-layer');
+page.classList.add(dir > 0 ? 'is-active' : 'is-prev');
+page.style.transform = '';
+page.style.transformOrigin = '';
+page.style.zIndex = '';
 
-if (dragIncoming) dragIncoming.style.zIndex = '';
+if (dragActive && dir < 0) dragActive.style.zIndex = '';
+if (dragIncoming && dir > 0) dragIncoming.style.zIndex = '';
 if (dragOther) dragOther.style.zIndex = '';
 
 dragState = null;
