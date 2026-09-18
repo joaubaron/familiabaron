@@ -1,6 +1,6 @@
 // Service Worker
 // A versão é atualizada automaticamente pelo deploy.yml a cada push no GitHub Pages.
-const CACHE_VERSION = '17.09.2026-1646';
+const CACHE_VERSION = '18.09.2026-0801';
 const CACHE_NAME = `album-baron-${CACHE_VERSION}`;
 
 const CORE = [
@@ -15,7 +15,9 @@ const CORE = [
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME)
-      .then(c => c.addAll(CORE))
+      .then(c => Promise.all(
+        CORE.map(url => fetch(url, { cache: 'reload' }).then(res => c.put(url, res)))
+      ))
       .then(() => self.skipWaiting())
   );
 });
@@ -37,7 +39,7 @@ self.addEventListener('fetch', e => {
   // HTML: network-first (garante versão nova do app)
   if (e.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
     e.respondWith(
-      fetch(e.request).then(res => {
+      fetch(e.request, { cache: 'reload' }).then(res => {
         const copy = res.clone();
         caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
         return res;
@@ -46,12 +48,27 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Mídia (/fotos/): cache-first — toca na hora, offline ou online
+  // manifest.json das fotos: network-first — assim uma foto nova aparece
+  // assim que o manifest for publicado, sem esperar o app inteiro atualizar
+  if (url.pathname.endsWith('/fotos/manifest.json')) {
+    e.respondWith(
+      fetch(e.request, { cache: 'reload' }).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Mídia (/fotos/): cache-first — toca na hora, offline ou online.
+  // 'reload' força ignorar o cache HTTP do disco quando não achou em CacheStorage,
+  // senão o navegador pode devolver uma versão antiga da imagem por baixo do pano.
   if (url.pathname.includes('/fotos/')) {
     e.respondWith(
       caches.match(e.request).then(cached => {
         if (cached) return cached;
-        return fetch(e.request).then(res => {
+        return fetch(e.request, { cache: 'reload' }).then(res => {
           const copy = res.clone();
           caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
           return res;
@@ -64,7 +81,7 @@ self.addEventListener('fetch', e => {
   // Resto (css/js/imagens locais): cache-first com atualização em background
   e.respondWith(
     caches.match(e.request).then(cached => {
-      const network = fetch(e.request).then(res => {
+      const network = fetch(e.request, { cache: 'reload' }).then(res => {
         const copy = res.clone();
         caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
         return res;
