@@ -76,8 +76,9 @@ z-index:999;
 pointer-events:none;
 }
 
+/* Voltar: parte de -90deg (de lado) até 0deg, sem mostrar o verso */
 .page.backward-flip {
-backface-visibility: visible;
+transition-duration: 320ms;
 }
 
 .page.dragging {
@@ -1021,21 +1022,21 @@ animating = false;
 preloadAround();
 });
 } else {
-// Voltar: a folha anterior começa dobrada à esquerda (-180deg)
-// e gira para a direita (0deg), caindo sobre a página atual.
+// Voltar: a folha anterior começa de lado (-90deg, invisível)
+// e gira até 0deg, caindo sobre a página atual. Sem verso visível,
+// então não há "pulo" no início.
 incoming.classList.remove('is-prev');
 incoming.classList.add('flip-layer', 'backward-flip');
 incoming.style.transformOrigin = 'left center';
 incoming.style.zIndex = '999';
-incoming.style.transform = 'rotateY(-180deg)';
+incoming.style.transform = 'rotateY(-90deg)';
 incoming.style.transition = 'none';
 book.appendChild(incoming);
 
 active.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
 
-// Garante que o estado inicial (-180deg) seja pintado antes de animar,
-// evitando o "pulo" inicial ao voltar a página.
+// Garante que o estado inicial (-90deg) seja pintado antes de animar.
 requestAnimationFrame(() => {
 requestAnimationFrame(() => {
 incoming.style.transition = '';
@@ -1147,16 +1148,16 @@ active.style.transformOrigin = 'left center';
 if (incoming) incoming.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
 } else {
-// Voltar: a folha anterior vem de -180deg (esquerda) para 0deg caindo sobre a atual.
+// Voltar: a folha anterior vem de -90deg (de lado) para 0deg caindo sobre a atual.
 if (incoming) {
 incoming.classList.add('dragging', 'flip-layer', 'backward-flip');
 incoming.classList.remove('is-prev');
 incoming.style.transformOrigin = 'left center';
 incoming.style.zIndex = '999';
-incoming.style.transform = 'rotateY(-180deg)';
+incoming.style.transform = 'rotateY(-90deg)';
 incoming.style.transition = 'none';
 book.appendChild(incoming);
-// Força o navegador a registrar o estado inicial (-180deg)
+// Força o navegador a registrar o estado inicial (-90deg)
 // antes do primeiro movimento do dedo, evitando o "pulo".
 void incoming.offsetWidth;
 incoming.style.transition = '';
@@ -1178,7 +1179,7 @@ if (!page) return;
 
 const angle = dragState.dir > 0
 ? -180 * progress
-: -180 + (180 * progress);
+: -90 + 90 * Math.min(Math.abs(dx) / (dragState.w * 0.45), 1);
 
 page.style.transform = `rotateY(${angle}deg)`;
 }
@@ -1221,7 +1222,7 @@ dragState = null;
 animating = true;
 
 page.classList.remove('dragging');
-page.style.transform = `rotateY(${dir > 0 ? 0 : -180}deg)`;
+page.style.transform = `rotateY(${dir > 0 ? 0 : -90}deg)`;
 
 waitTransitionEnd(page, 700, () => {
 mountWindow();
