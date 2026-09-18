@@ -81,6 +81,14 @@ z-index:999;
 pointer-events:none;
 }
 
+/* No retorno, a folha anterior é uma folha física presa à lombada esquerda.
+   Ela começa SOBRE a página atual (0deg) e cai para a direita (180deg).
+   Mantemos a face traseira visível durante a rotação para que a folha
+   nunca desapareça nem pareça nascer do fundo. */
+.page.backward-flip {
+backface-visibility: visible;
+}
+
 .page.dragging {
 transition: none;
 }
@@ -956,7 +964,7 @@ if (!dragState) return;
 book.classList.remove('grabbing');
 
 [...book.children].forEach(el => {
-el.classList.remove('dragging');
+el.classList.remove('dragging', 'backward-flip');
 if (el.classList.contains('flip-layer')) {
 if (dragState.dir > 0) {
 el.classList.remove('flip-layer');
@@ -1023,9 +1031,10 @@ animating = false;
 preloadAround();
 });
 } else {
-// Voltar: a página anterior vem da esquerda e passa por cima da atual.
+// Voltar: a folha anterior já está sobre a página atual,
+// presa à lombada esquerda. Ela simplesmente cai para a direita.
 incoming.classList.remove('is-prev');
-incoming.classList.add('flip-layer');
+incoming.classList.add('flip-layer', 'backward-flip');
 book.appendChild(incoming);
 incoming.style.transformOrigin = 'left center';
 incoming.style.zIndex = '999';
@@ -1033,10 +1042,11 @@ incoming.style.zIndex = '999';
 active.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
 
-// Começa fechada (180°) e abre para a página atual (0°).
-incoming.style.transform = 'rotateY(180deg)';
-void incoming.offsetWidth;
+// NÃO começa em 180deg. Começa exatamente sobre a página atual
+// e gira até 180deg em torno da lombada esquerda.
 incoming.style.transform = 'rotateY(0deg)';
+void incoming.offsetWidth;
+incoming.style.transform = 'rotateY(180deg)';
 
 waitTransitionEnd(incoming, 700, () => {
 current = target;
@@ -1140,14 +1150,15 @@ book.appendChild(active);
 active.style.transformOrigin = 'left center';
 }
 } else {
-// Voltar: a página anterior é a folha que vem por cima.
+// Voltar: a folha anterior fica sobre a atual e é puxada
+// pela lombada esquerda, acompanhando o dedo para a direita.
 if (incoming) {
-incoming.classList.add('dragging', 'flip-layer');
+incoming.classList.add('dragging', 'flip-layer', 'backward-flip');
 incoming.classList.remove('is-prev');
 book.appendChild(incoming);
 incoming.style.transformOrigin = 'left center';
 incoming.style.zIndex = '999';
-incoming.style.transform = 'rotateY(180deg)';
+incoming.style.transform = 'rotateY(0deg)';
 }
 if (active) active.style.zIndex = '2';
 }
@@ -1172,7 +1183,7 @@ if (!page) return;
 
 const angle = dragState.dir > 0
 ? -180 * progress
-: 180 - (180 * progress);
+: 180 * progress;
 
 page.style.transform = `rotateY(${angle}deg)`;
 }
@@ -1198,7 +1209,8 @@ if (commit) {
 animating = true;
 
 page.classList.remove('dragging');
-page.style.transform = `rotateY(${dir > 0 ? -180 : 0}deg)`;
+if (dir < 0) page.classList.add('backward-flip');
+page.style.transform = `rotateY(${dir > 0 ? -180 : 180}deg)`;
 
 const target = current + dir;
 
@@ -1211,7 +1223,7 @@ preloadAround();
 dragState = null;
 });
 } else {
-page.classList.remove('dragging', 'flip-layer');
+page.classList.remove('dragging', 'flip-layer', 'backward-flip');
 page.classList.add(dir > 0 ? 'is-active' : 'is-prev');
 page.style.transform = '';
 page.style.transformOrigin = '';
