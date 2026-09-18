@@ -258,6 +258,86 @@ filter: sepia(0.25) contrast(1.05) saturate(0.9);
 user-drag: none;
 }
 
+/* ---- ÍNDICE DE MINIATURAS ---- */
+#index-toggle {
+position:absolute; top:12px; left:14px; z-index:100;
+background: transparent;
+border: none;
+width: 40px; height: 40px;
+font-size: 20px;
+line-height: 1;
+color: #ffffff;
+box-shadow: none;
+cursor: pointer;
+display: flex; align-items: center; justify-content: center;
+transition: transform 0.15s, opacity 0.2s;
+text-shadow: 0 2px 6px rgba(0,0,0,0.7);
+}
+#index-toggle:active { transform: scale(0.9); opacity: 0.8; }
+
+#index-overlay {
+position: fixed; inset: 0;
+background: rgba(20, 10, 5, 0.94);
+z-index: 400;
+display: flex; flex-direction: column;
+opacity: 0;
+visibility: hidden;
+transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+}
+#index-overlay.visible {
+opacity: 1;
+visibility: visible;
+transition: opacity 0.25s ease, visibility 0s;
+}
+#index-header {
+flex: none;
+padding: 18px 20px 10px;
+display: flex; align-items: center; justify-content: space-between;
+color: #e8d9bc;
+font-family: 'Georgia', serif;
+font-style: italic;
+letter-spacing: 1px;
+font-size: 14px;
+}
+#index-close {
+background: transparent; border: none;
+color: #e8d9bc; font-size: 28px;
+line-height: 1; cursor: pointer;
+padding: 0 4px;
+}
+#index-grid {
+flex: 1;
+overflow-y: auto;
+-webkit-overflow-scrolling: touch;
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+gap: 10px;
+padding: 6px 16px 24px;
+}
+.index-thumb {
+position: relative;
+aspect-ratio: 1 / 1;
+border-radius: 4px;
+overflow: hidden;
+cursor: pointer;
+background: #1c1108;
+box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+}
+.index-thumb img {
+width: 100%; height: 100%;
+object-fit: cover;
+filter: sepia(0.25) contrast(1.05) saturate(0.9);
+display: block;
+-webkit-user-drag: none;
+user-drag: none;
+}
+.index-thumb .index-thumb-num {
+position: absolute; bottom: 2px; right: 4px;
+font-size: 10px; color: #f5ecd8;
+text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+font-style: italic;
+}
+
 /* ---- CONTROLES ---- */
 .nav {
 position:absolute; bottom:0; left:0; right:0;
@@ -358,6 +438,7 @@ transform: scale(0.58);
 <div id="book"></div>
 
 <button id="music-toggle" aria-label="Ligar/desligar música" aria-pressed="false">▶&#xFE0E;</button>
+<button id="index-toggle" aria-label="Ver índice de fotos" title="Índice de fotos">▦</button>
 
 <audio id="bgm" src="fotos/familia.mp3" preload="auto"></audio>
 
@@ -371,6 +452,14 @@ transform: scale(0.58);
 
 <div id="zoom-overlay" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
 <img alt="">
+</div>
+
+<div id="index-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+<div id="index-header">
+<span>Índice de fotos</span>
+<button id="index-close" aria-label="Fechar índice">×</button>
+</div>
+<div id="index-grid"></div>
 </div>
 
 <script>
@@ -477,8 +566,70 @@ zoomImg.src = '';
 }
 zoomOverlay.addEventListener('click', closeZoom);
 document.addEventListener('keydown', e => {
-if (e.key === 'Escape') closeZoom();
+if (e.key === 'Escape') { closeZoom(); closeIndex(); }
 });
+
+/* ============================================================
+ÍNDICE DE MINIATURAS
+============================================================ */
+const indexToggle = document.getElementById('index-toggle');
+const indexOverlay = document.getElementById('index-overlay');
+const indexGrid = document.getElementById('index-grid');
+const indexClose = document.getElementById('index-close');
+
+function buildIndexGrid() {
+indexGrid.innerHTML = '';
+pages.forEach((p, i) => {
+if (p.type !== 'photo') return;
+const item = p.items[0];
+const src = PHOTOS_DIR + encodeURIComponent(item.file);
+
+const thumb = document.createElement('div');
+thumb.className = 'index-thumb';
+
+const img = document.createElement('img');
+img.src = src;
+img.alt = item.caption;
+img.loading = 'lazy';
+img.decoding = 'async';
+img.draggable = false;
+
+const num = document.createElement('span');
+num.className = 'index-thumb-num';
+num.textContent = i;
+
+thumb.appendChild(img);
+thumb.appendChild(num);
+thumb.addEventListener('click', () => {
+closeIndex();
+// sincroniza o livro com a foto escolhida, sem animação de flip,
+// pra que ao fechar o zoom a pessoa já esteja na página certa
+current = i;
+mountWindow();
+updateNav();
+preloadAround();
+openZoom(src, item.caption);
+});
+indexGrid.appendChild(thumb);
+});
+}
+
+function openIndex() {
+if (!pages.length || animating) return;
+closeZoom();
+buildIndexGrid();
+indexOverlay.classList.add('visible');
+indexOverlay.setAttribute('aria-hidden', 'false');
+}
+function closeIndex() {
+if (!indexOverlay.classList.contains('visible')) return;
+indexOverlay.classList.remove('visible');
+indexOverlay.setAttribute('aria-hidden', 'true');
+}
+
+indexToggle.addEventListener('click', e => { e.stopPropagation(); openIndex(); });
+indexClose.addEventListener('click', closeIndex);
+indexOverlay.addEventListener('click', e => { if (e.target === indexOverlay) closeIndex(); });
 
 /* ============================================================
 DESCOBERTA
