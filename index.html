@@ -985,9 +985,33 @@ init();
 
 if ('serviceWorker' in navigator) {
 window.addEventListener('load', () => {
-navigator.serviceWorker.register('./sw.js')
-.then(reg => console.log('SW registrado:', reg.scope))
+// updateViaCache:'none' garante que o próprio sw.js NUNCA venha do
+// cache HTTP do navegador — toda checagem de atualização baixa o
+// arquivo de verdade, então a mudança no CACHE_VERSION é vista na hora.
+navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+.then(reg => {
+console.log('SW registrado:', reg.scope);
+
+// Checa por atualização assim que o app volta a ficar visível
+// (ex.: usuário reabre o PWA fechado em segundo plano).
+document.addEventListener('visibilitychange', () => {
+if (document.visibilityState === 'visible') reg.update();
+});
+
+// Checagem periódica enquanto o app fica aberto, sem depender de
+// uma nova navegação para disparar a verificação.
+setInterval(() => reg.update(), 60 * 1000);
+})
 .catch(err => console.error('Falha no registro do SW:', err));
+
+// Quando o novo SW assume o controle (após skipWaiting + clients.claim),
+// recarrega a página uma vez para já exibir a versão nova imediatamente.
+let refreshing = false;
+navigator.serviceWorker.addEventListener('controllerchange', () => {
+if (refreshing) return;
+refreshing = true;
+window.location.reload();
+});
 });
 }
 
