@@ -1003,16 +1003,23 @@ preloadAround();
 // e gira para a direita (0deg), caindo sobre a página atual.
 incoming.classList.remove('is-prev');
 incoming.classList.add('flip-layer', 'backward-flip');
-book.appendChild(incoming);
 incoming.style.transformOrigin = 'left center';
 incoming.style.zIndex = '999';
+incoming.style.transform = 'rotateY(-180deg)';
+incoming.style.transition = 'none';
+book.appendChild(incoming);
 
 active.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
 
-incoming.style.transform = 'rotateY(-180deg)';
-void incoming.offsetWidth;
+// Garante que o estado inicial (-180deg) seja pintado antes de animar,
+// evitando o "pulo" inicial ao voltar a página.
+requestAnimationFrame(() => {
+requestAnimationFrame(() => {
+incoming.style.transition = '';
 incoming.style.transform = 'rotateY(0deg)';
+});
+});
 
 waitTransitionEnd(incoming, 700, () => {
 current = target;
@@ -1122,10 +1129,15 @@ if (other) other.style.zIndex = '1';
 if (incoming) {
 incoming.classList.add('dragging', 'flip-layer', 'backward-flip');
 incoming.classList.remove('is-prev');
-book.appendChild(incoming);
 incoming.style.transformOrigin = 'left center';
 incoming.style.zIndex = '999';
 incoming.style.transform = 'rotateY(-180deg)';
+incoming.style.transition = 'none';
+book.appendChild(incoming);
+// Força o navegador a registrar o estado inicial (-180deg)
+// antes do primeiro movimento do dedo, evitando o "pulo".
+void incoming.offsetWidth;
+incoming.style.transition = '';
 }
 if (active) active.style.zIndex = '2';
 if (other) other.style.zIndex = '1';
