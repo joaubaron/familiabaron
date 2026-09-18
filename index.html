@@ -256,7 +256,17 @@ box-shadow: 0 10px 40px rgba(0,0,0,0.8);
 filter: sepia(0.25) contrast(1.05) saturate(0.9);
 -webkit-user-drag: none;
 user-drag: none;
+touch-action: none;
 }
+
+#zoom-close {
+position: absolute; top: 12px; right: 14px; z-index: 501;
+background: transparent; border: none;
+color: #f5ecd8; font-size: 32px; line-height: 1;
+cursor: pointer; padding: 6px 10px;
+text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+}
+#zoom-close:active { transform: scale(0.9); }
 
 /* ---- ÍNDICE DE MINIATURAS ---- */
 #index-toggle {
@@ -359,7 +369,7 @@ display:flex; align-items:center; justify-content:center;
 @keyframes restartPulse { from { transform:scale(0.92); } to { transform:scale(1.05); } }
 
 .hint {
-position:absolute; top:14px; left:0; right:0; height:40px;
+position:absolute; top:12px; left:0; right:0; height:40px;
 display:flex; align-items:center; justify-content:center;
 text-align:center; color:#d8c0a0; font-size:12px;
 font-style:italic; letter-spacing:1px; z-index:100;
@@ -443,7 +453,7 @@ transform: scale(0.58);
 
 <audio id="bgm" src="fotos/familia.mp3" preload="auto"></audio>
 
-<div class="hint" id="hint">Folheie ou toque nas setas</div>
+<div class="hint" id="hint">Deslize para folhear</div>
 
 <div class="nav">
 <button id="prev" aria-label="Página anterior">‹</button>
@@ -452,6 +462,7 @@ transform: scale(0.58);
 </div>
 
 <div id="zoom-overlay" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+<button id="zoom-close" aria-label="Fechar">×</button>
 <img alt="">
 </div>
 
@@ -553,6 +564,7 @@ ZOOM OVERLAY
 ============================================================ */
 function openZoom(src, alt) {
 if (zoomOverlay.classList.contains('visible')) return;
+resetPinchZoom();
 zoomImg.src = src;
 zoomImg.alt = alt || '';
 zoomOverlay.classList.add('visible');
@@ -564,11 +576,99 @@ if (!zoomOverlay.classList.contains('visible')) return;
 zoomOverlay.classList.remove('visible');
 zoomOverlay.setAttribute('aria-hidden', 'true');
 zoomImg.src = '';
+resetPinchZoom();
 }
-zoomOverlay.addEventListener('click', closeZoom);
+const zoomClose = document.getElementById('zoom-close');
+zoomClose.addEventListener('click', e => { e.stopPropagation(); closeZoom(); });
+// Fecha só se o toque foi no fundo escuro, não na própria foto —
+// senão atrapalharia tentar dar pinça ou arrastar pra ampliar.
+zoomOverlay.addEventListener('click', e => { if (e.target === zoomOverlay) closeZoom(); });
 document.addEventListener('keydown', e => {
 if (e.key === 'Escape') { closeZoom(); closeIndex(); }
 });
+
+/* ============================================================
+PINÇA PARA AMPLIAR / ARRASTAR PARA MOVER (dentro do zoom)
+============================================================ */
+let pinchScale = 1;
+let pinchOffsetX = 0, pinchOffsetY = 0;
+const pinchPointers = new Map();
+let pinchStartDist = 0;
+let pinchStartScale = 1;
+let panStart = null;
+const PINCH_MIN = 1, PINCH_MAX = 4;
+
+function applyPinchTransform() {
+zoomImg.style.transform = `translate(${pinchOffsetX}px, ${pinchOffsetY}px) scale(${pinchScale})`;
+}
+function resetPinchZoom() {
+pinchScale = 1; pinchOffsetX = 0; pinchOffsetY = 0;
+pinchPointers.clear();
+pinchStartDist = 0;
+panStart = null;
+zoomImg.style.transform = '';
+}
+function clampPinchOffsets() {
+const maxX = (pinchScale - 1) * window.innerWidth / 2;
+const maxY = (pinchScale - 1) * window.innerHeight / 2;
+pinchOffsetX = Math.min(maxX, Math.max(-maxX, pinchOffsetX));
+pinchOffsetY = Math.min(maxY, Math.max(-maxY, pinchOffsetY));
+}
+
+zoomImg.addEventListener('pointerdown', e => {
+pinchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+try { zoomImg.setPointerCapture(e.pointerId); } catch(_) {}
+
+if (pinchPointers.size === 1) {
+panStart = { x: e.clientX, y: e.clientY, offsetX: pinchOffsetX, offsetY: pinchOffsetY };
+} else if (pinchPointers.size === 2) {
+const pts = [...pinchPointers.values()];
+pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+pinchStartScale = pinchScale;
+panStart = null;
+}
+});
+
+zoomImg.addEventListener('pointermove', e => {
+if (!pinchPointers.has(e.pointerId)) return;
+pinchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+if (pinchPointers.size === 2) {
+const pts = [...pinchPointers.values()];
+const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+if (pinchStartDist > 0) {
+pinchScale = Math.min(PINCH_MAX, Math.max(PINCH_MIN, pinchStartScale * (dist / pinchStartDist)));
+clampPinchOffsets();
+applyPinchTransform();
+}
+} else if (pinchPointers.size === 1 && panStart && pinchScale > 1) {
+const p = [...pinchPointers.values()][0];
+pinchOffsetX = panStart.offsetX + (p.x - panStart.x);
+pinchOffsetY = panStart.offsetY + (p.y - panStart.y);
+clampPinchOffsets();
+applyPinchTransform();
+}
+});
+
+function endPinchPointer(e) {
+pinchPointers.delete(e.pointerId);
+try { zoomImg.releasePointerCapture(e.pointerId); } catch(_) {}
+
+if (pinchPointers.size < 2) pinchStartDist = 0;
+
+if (pinchPointers.size === 1) {
+const p = [...pinchPointers.values()][0];
+panStart = { x: p.x, y: p.y, offsetX: pinchOffsetX, offsetY: pinchOffsetY };
+} else if (pinchPointers.size === 0) {
+panStart = null;
+if (pinchScale < 1.05) {
+pinchScale = 1; pinchOffsetX = 0; pinchOffsetY = 0;
+applyPinchTransform();
+}
+}
+}
+zoomImg.addEventListener('pointerup', endPinchPointer);
+zoomImg.addEventListener('pointercancel', endPinchPointer);
 
 /* ============================================================
 ÍNDICE DE MINIATURAS
@@ -776,18 +876,13 @@ wrap.insertBefore(ph, img);
 };
 
 let downX = 0, downY = 0;
-let lastTap = 0;
 img.addEventListener('pointerdown', e => {
 downX = e.clientX;
 downY = e.clientY;
 });
 img.addEventListener('pointerup', e => {
 if (Math.hypot(e.clientX - downX, e.clientY - downY) > 10) return;
-const now = Date.now();
-if (now - lastTap < 350) {
 openZoom(img.src, img.alt);
-}
-lastTap = now;
 });
 
 const cap = document.createElement('div');
