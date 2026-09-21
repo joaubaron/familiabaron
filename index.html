@@ -503,7 +503,10 @@ const MUSIC_KEY = 'album-familia-musica-mutada';
 bgm.volume = 0.7;
 bgm.loop = true;
 
-let userWantsMusic = localStorage.getItem(MUSIC_KEY) !== '1';
+let userWantsMusic = true;
+try {
+userWantsMusic = localStorage.getItem(MUSIC_KEY) !== '1';
+} catch (_) {}
 
 function updateMusicIcon() {
 const playing = !bgm.paused && !bgm.ended;
@@ -540,7 +543,9 @@ musicToggle.addEventListener('click', async (e) => {
 e.stopPropagation();
 
 userWantsMusic = !userWantsMusic;
+try {
 localStorage.setItem(MUSIC_KEY, userWantsMusic ? '0' : '1');
+} catch (_) {}
 
 if (userWantsMusic) {
 try { await bgm.play(); } catch (_) {}
@@ -1110,8 +1115,10 @@ const dy = y - dragState.startY;
 dragState.dx = dx;
 dragState.dy = dy;
 
-if (!dragState.dir && Math.abs(dy) > Math.abs(dx)) {
-cancelDrag();
+// Gesto vertical (com limiar): nada foi alterado no DOM, então não remonta.
+if (!dragState.dir && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+book.classList.remove('grabbing');
+dragState = null;
 return;
 }
 
@@ -1196,7 +1203,13 @@ const commit = dir !== 0 && (progress > 0.28 || Math.abs(dx) > w * 0.22);
 
 const page = dir > 0 ? dragActive : dragIncoming;
 
-if (!dir || !page) {
+// Tap simples (dir = 0): nada foi alterado no DOM, então não remonta.
+if (!dir) {
+dragState = null;
+return;
+}
+
+if (!page) {
 cancelDrag();
 return;
 }
@@ -1303,7 +1316,6 @@ if (document.visibilityState === 'visible') reg.update();
 })
 .catch(err => console.error('Falha no registro do SW:', err));
 });
-}
 
 let refreshing = false;
 let hadController = !!navigator.serviceWorker.controller;
@@ -1314,6 +1326,7 @@ refreshing = true;
 sessionStorage.setItem('album-familia-pagina', String(current));
 window.location.reload();
 });
+}
 </script>
 </body>
 </html>
