@@ -475,12 +475,27 @@ transform: scale(0.58);
 .page { transition-duration: 1ms !important; }
 #zoom-overlay { transition-duration: 1ms !important; }
 }
+
+#my-splash {
+position: fixed; inset: 0;
+background: #2b1810;
+display: flex; align-items: center; justify-content: center;
+z-index: 9999;
+transition: opacity 0.6s ease;
+}
+#my-splash img {
+width: 120px; height: 120px;
+border-radius: 12px;
+object-fit: cover;
+}
+#my-splash.hide { opacity: 0; pointer-events: none; }
+
 </style>
 </head>
 <body>
 
 <div id="loading">Abrindo o álbum…</div>
-
+<div id="my-splash"><img src="fotos/capa.webp" alt=""></div>
 <div id="book"></div>
 
 <button id="music-toggle" aria-label="Ligar/desligar música" aria-pressed="false">▶&#xFE0E;</button>
@@ -1392,6 +1407,10 @@ updateNav();
 preloadAround();
 
 setTimeout(() => hint.classList.add('hide'), 4000);
+
+const splashEl = document.getElementById('my-splash');
+setTimeout(() => splashEl.classList.add('hide'), 3000);
+setTimeout(() => splashEl.remove(), 3800);
 }
 init();
 
