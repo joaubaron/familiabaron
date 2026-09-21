@@ -833,7 +833,7 @@ if (coverEl) coverEl.classList.add('cover-img-fallback');
 };
 
 if (coverStatus === null) {
-fetch(PHOTOS_DIR + 'capa.webp', { method: 'HEAD' })
+fetch(PHOTOS_DIR + 'capa.webp')
 .then(r => { coverStatus = r.ok; })
 .catch(() => { coverStatus = false; })
 .finally(applyCoverFallback);
