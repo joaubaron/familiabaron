@@ -558,6 +558,14 @@ updateMusicIcon();
 updateMusicIcon();
 tryPlayMusic();
 
+document.addEventListener('visibilitychange', () => {
+if (document.visibilityState === 'hidden') {
+bgm.pause();
+} else if (userWantsMusic) {
+bgm.play().then(updateMusicIcon).catch(() => {});
+}
+});
+
 /* ============================================================
 ZOOM OVERLAY
 ============================================================ */
@@ -994,6 +1002,7 @@ el.addEventListener('transitionend', finish, { once:true });
 
 function go(direction) {
 if (animating) return;
+if (zoomOverlay.classList.contains('visible') || indexOverlay.classList.contains('visible')) return;
 
 const target = current + direction;
 if (target < 0 || target >= pages.length) return;
@@ -1295,8 +1304,11 @@ return;
 }
 pages = buildPages(photos);
 loading.style.display = 'none';
-const savedPage = parseInt(sessionStorage.getItem('album-familia-pagina'), 10);
+let savedPage = NaN;
+try {
+savedPage = parseInt(sessionStorage.getItem('album-familia-pagina'), 10);
 sessionStorage.removeItem('album-familia-pagina');
+} catch (_) {}
 current = (Number.isInteger(savedPage) && savedPage >= 0 && savedPage < pages.length) ? savedPage : 0;
 mountWindow();
 updateNav();
@@ -1323,7 +1335,9 @@ navigator.serviceWorker.addEventListener('controllerchange', () => {
 if (refreshing) return;
 if (!hadController) { hadController = true; return; }
 refreshing = true;
+try {
 sessionStorage.setItem('album-familia-pagina', String(current));
+} catch (_) {}
 window.location.reload();
 });
 }
