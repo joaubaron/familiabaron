@@ -1,6 +1,6 @@
 // Service Worker
 // A versão é atualizada automaticamente pelo deploy.yml a cada push no GitHub Pages.
-const CACHE_VERSION = '21.09.2026-0821';
+const CACHE_VERSION = '21.09.2026-0825';
 const CACHE_NAME = `album-baron-${CACHE_VERSION}`;
 
 const CORE = [
@@ -16,7 +16,7 @@ self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME)
       .then(c => Promise.all(
-        CORE.map(url => fetch(url, { cache: 'reload' }).then(res => c.put(url, res)))
+        CORE.map(url => fetch(url, { cache: 'reload' }).then(res => res.status === 200 && c.put(url, res)))
       ))
       .then(() => self.skipWaiting())
   );
@@ -40,23 +40,33 @@ self.addEventListener('fetch', e => {
   if (e.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
     e.respondWith(
       fetch(e.request, { cache: 'reload' }).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
+        if (res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
+        }
         return res;
-      }).catch(() => caches.match(e.request))
+      }).catch(() =>
+        caches.match(e.request, { ignoreSearch: true })
+          .then(r => r || caches.match('./index.html'))
+      )
     );
     return;
   }
 
   // manifest.json das fotos: network-first — assim uma foto nova aparece
-  // assim que o manifest for publicado, sem esperar o app inteiro atualizar
+  // assim que o manifest for publicado, sem esperar o app inteiro atualizar.
+  // A chave do cache ignora a query (?t=...), senão o fallback offline não
+  // encontra a entrada e o cache cresce a cada abertura.
   if (url.pathname.endsWith('/fotos/manifest.json')) {
+    const key = url.origin + url.pathname;
     e.respondWith(
       fetch(e.request, { cache: 'reload' }).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
+        if (res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(key, copy));
+        }
         return res;
-      }).catch(() => caches.match(e.request))
+      }).catch(() => caches.match(key))
     );
     return;
   }
@@ -69,8 +79,10 @@ self.addEventListener('fetch', e => {
       caches.match(e.request).then(cached => {
         if (cached) return cached;
         return fetch(e.request, { cache: 'reload' }).then(res => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
+          if (res.status === 200) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
+          }
           return res;
         });
       })
@@ -82,8 +94,10 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     caches.match(e.request).then(cached => {
       const network = fetch(e.request, { cache: 'reload' }).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
+        if (res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
+        }
         return res;
       }).catch(() => cached);
       return cached || network;
