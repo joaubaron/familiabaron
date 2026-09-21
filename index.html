@@ -1150,14 +1150,20 @@ preloadAround();
 prevBtn.addEventListener('click', () => go(-1));
 nextBtn.addEventListener('click', () => go(1));
 
-restartBtn.addEventListener('click', () => {
-if (animating || current <= 0) return;
+let restarting = false;
 
-current = 0;
-mountWindow();
+restartBtn.addEventListener('click', async () => {
+if (animating || restarting || current <= 0) return;
+restarting = true;
+restartBtn.disabled = true;
+
+while (current > 0) {
+go(-1);
+await new Promise(r => setTimeout(r, 380));
+}
+
+restarting = false;
 updateNav();
-preloadAround();
-
 hint.classList.remove('hide');
 setTimeout(() => hint.classList.add('hide'), 2000);
 });
