@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
 <meta name="theme-color" content="#fce09e">
 <link rel="manifest" href="manifest.json">
 <title>Álbum de Fotos de família</title>
@@ -219,11 +219,6 @@ font-family:'Georgia','Times New Roman',serif;
 font-style: italic; font-size:16px; line-height:1.9;
 color:#7a5a3a; max-width:300px; margin-bottom:24px;
 }
-.end-count {
-font-family:'Georgia','Times New Roman',serif;
-font-style: italic; font-size:13px; color:#8a6b4a;
-letter-spacing:1px; margin-bottom:6px;
-}
 .end-signature {
 font-family:'Georgia','Times New Roman',serif;
 font-style: italic; font-size:13px; color:#8a6b4a;
@@ -407,8 +402,6 @@ display:flex; align-items:center; justify-content:center;
 }
 .nav button:active { transform:scale(0.9); background:#e8d9bc; }
 .nav button:disabled { opacity:0.3; }
-.nav button.restarting { animation: restartPulse 0.22s ease-in-out infinite alternate; }
-@keyframes restartPulse { from { transform:scale(0.92); } to { transform:scale(1.05); } }
 
 .hint {
 position:absolute; top:12px; left:0; right:0; height:40px;
@@ -660,8 +653,11 @@ panStart = null;
 zoomImg.style.transform = '';
 }
 function clampPinchOffsets() {
-const maxX = (pinchScale - 1) * window.innerWidth / 2;
-const maxY = (pinchScale - 1) * window.innerHeight / 2;
+const rect = zoomImg.getBoundingClientRect();
+const baseW = rect.width  / pinchScale;
+const baseH = rect.height / pinchScale;
+const maxX = Math.max(0, (baseW * pinchScale - window.innerWidth)  / 2);
+const maxY = Math.max(0, (baseH * pinchScale - window.innerHeight) / 2);
 pinchOffsetX = Math.min(maxX, Math.max(-maxX, pinchOffsetX));
 pinchOffsetY = Math.min(maxY, Math.max(-maxY, pinchOffsetY));
 }
@@ -747,6 +743,10 @@ indexEmpty.hidden = shown > 0;
 indexGrid.scrollTop = 0;
 }
 indexSearch.addEventListener('input', filterIndex);
+
+indexSearch.addEventListener('keydown', e => {
+if (e.key === 'Enter') indexSearch.blur();
+});
 
 function buildIndexGrid() {
 indexGrid.innerHTML = '';
@@ -1152,14 +1152,11 @@ nextBtn.addEventListener('click', () => go(1));
 
 restartBtn.addEventListener('click', () => {
 if (animating || current <= 0) return;
-animating = true;
 
 current = 0;
 mountWindow();
 updateNav();
 preloadAround();
-
-animating = false;
 
 hint.classList.remove('hide');
 setTimeout(() => hint.classList.add('hide'), 2000);
