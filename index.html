@@ -348,6 +348,47 @@ text-shadow: 0 1px 3px rgba(0,0,0,0.9);
 font-style: italic;
 }
 
+#index-search-wrap {
+flex: none;
+padding: 0 16px 10px;
+}
+#index-search {
+width: 100%;
+padding: 9px 12px;
+font-size: 16px;
+font-family: 'Georgia', serif;
+color: #f5ecd8;
+background: rgba(245, 236, 216, 0.1);
+border: 1px solid rgba(232, 217, 188, 0.3);
+border-radius: 6px;
+outline: none;
+user-select: text;
+-webkit-user-select: text;
+}
+#index-search::placeholder { color: rgba(232, 217, 188, 0.55); font-style: italic; }
+#index-search:focus { border-color: rgba(232, 217, 188, 0.7); }
+#index-empty {
+flex: none;
+padding: 24px 20px;
+text-align: center;
+color: #e8d9bc;
+font-style: italic;
+font-size: 14px;
+}
+.index-item { min-width: 0; cursor: pointer; }
+.index-caption {
+margin-top: 4px;
+font-size: 10px;
+line-height: 1.25;
+color: #e8d9bc;
+font-style: italic;
+text-align: center;
+display: -webkit-box;
+-webkit-line-clamp: 2;
+-webkit-box-orient: vertical;
+overflow: hidden;
+}
+
 /* ---- CONTROLES ---- */
 .nav {
 position:absolute; bottom:0; left:0; right:0;
@@ -471,6 +512,10 @@ transform: scale(0.58);
 <span>Índice de fotos</span>
 <button id="index-close" aria-label="Fechar índice">×</button>
 </div>
+<div id="index-search-wrap">
+<input id="index-search" type="search" placeholder="Buscar por nome…" aria-label="Buscar foto por nome" autocomplete="off" autocapitalize="off" spellcheck="false">
+</div>
+<div id="index-empty" hidden>Nenhuma foto encontrada.</div>
 <div id="index-grid"></div>
 </div>
 
@@ -682,6 +727,25 @@ const indexToggle = document.getElementById('index-toggle');
 const indexOverlay = document.getElementById('index-overlay');
 const indexGrid = document.getElementById('index-grid');
 const indexClose = document.getElementById('index-close');
+const indexSearch = document.getElementById('index-search');
+const indexEmpty = document.getElementById('index-empty');
+
+function normalizeText(s) {
+return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function filterIndex() {
+const terms = normalizeText(indexSearch.value).split(/\s+/).filter(Boolean);
+let shown = 0;
+[...indexGrid.children].forEach(el => {
+const ok = terms.every(t => el.dataset.search.includes(t));
+el.hidden = !ok;
+if (ok) shown++;
+});
+indexEmpty.hidden = shown > 0;
+indexGrid.scrollTop = 0;
+}
+indexSearch.addEventListener('input', filterIndex);
 
 function buildIndexGrid() {
 indexGrid.innerHTML = '';
@@ -689,6 +753,10 @@ pages.forEach((p, i) => {
 if (p.type !== 'photo') return;
 const item = p.items[0];
 const src = PHOTOS_DIR + encodeURIComponent(item.file);
+
+const cell = document.createElement('div');
+cell.className = 'index-item';
+cell.dataset.search = normalizeText(item.caption) + ' ' + i;
 
 const thumb = document.createElement('div');
 thumb.className = 'index-thumb';
@@ -706,21 +774,30 @@ num.textContent = i;
 
 thumb.appendChild(img);
 thumb.appendChild(num);
-thumb.addEventListener('click', () => {
+
+const cap = document.createElement('div');
+cap.className = 'index-caption';
+cap.textContent = item.caption;
+
+cell.appendChild(thumb);
+cell.appendChild(cap);
+cell.addEventListener('click', () => {
 closeIndex();
 current = i;
 mountWindow();
 updateNav();
 preloadAround();
 });
-indexGrid.appendChild(thumb);
+indexGrid.appendChild(cell);
 });
 }
 
 function openIndex() {
 if (!pages.length || animating) return;
 closeZoom();
+indexSearch.value = '';
 buildIndexGrid();
+indexEmpty.hidden = true;
 indexOverlay.classList.add('visible');
 indexOverlay.setAttribute('aria-hidden', 'false');
 }
@@ -728,6 +805,7 @@ function closeIndex() {
 if (!indexOverlay.classList.contains('visible')) return;
 indexOverlay.classList.remove('visible');
 indexOverlay.setAttribute('aria-hidden', 'true');
+indexSearch.blur();
 }
 
 indexToggle.addEventListener('click', e => { e.stopPropagation(); openIndex(); });
