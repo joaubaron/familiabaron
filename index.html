@@ -1098,6 +1098,7 @@ let dragState = null;
 
 function dragStart(x, y, pointerId) {
 if (animating) return;
+if (dragState && dragState.dir) cancelDrag();
 
 dragState = {
 startX: x,
