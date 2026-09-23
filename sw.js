@@ -1,6 +1,6 @@
 // Service Worker
 // A versão é atualizada automaticamente pelo deploy.yml a cada push no GitHub Pages.
-const CACHE_VERSION = '23.09.2026-1442';
+const CACHE_VERSION = '23.09.2026-1443';
 const CACHE_NAME = `album-baron-${CACHE_VERSION}`;
 
 const CORE = [
